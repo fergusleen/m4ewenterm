@@ -75,7 +75,6 @@ ScreenWrite
 	JP	Z,SW_Ansi		; Also, an Ansi switch on  
 					; Ansi handler does the rest
 SW1	
-	CALL	JScrnBuf		; Put the character into the buffer
 	LD	HL,Character		; Character buffer address
 	CALL	Getcharacter
 	CALL	JItalics		; Set the character matrix up
@@ -85,6 +84,7 @@ SW1
 IF Colour
 	CALL	JSmash
 ENDIF
+	call ROMDIS
 	EX	HL,DE
 	LD	HL,(CursorPosition)
 	PUSH	HL			; Save cursor position for later
@@ -142,7 +142,7 @@ ENDIF
 
 	LD	A,(DE)			; 8
 	LD	(HL),A
-
+	call romen
 	POP	HL			; Restore cursor position
 	LD	A,H
 	CP	79			; Are we at the right edge?
@@ -250,24 +250,25 @@ SWLF1					; Now the hard bit
 	CALL	SCR_SET_OFFSET		; Tell the hardware about it
 
 
-;	LD	A,(JScrnBuf)		; Is the buffer on?
-;	LD	(SW_LF_JBuf),A
-;	CALL	SW_LF_JBuf  ;  FL this is causing issues **!*
+	;  LD	A,(JScrnBuf)		; Is the buffer on?
+	;  LD	(SW_LF_JBuf),A
+	;  CALL	SW_LF_JBuf  ;  FL this is causing issues **!*
 
 	LD	B,255			; Scroll upwards
-	XOR	A			; Fill with 0's
-	CALL	SCR_HW_ROLL		; Move the screen up and blank
-					; the bottom line
-
+	XOR	A			; Fill with 0's. FL- This is the paper.
+	CALL	SCR_HW_ROLL		; Move the screen up and blank the bottom line
+					; FL- Ok we have a bug here. SCR_HW_ROLL does not blank the bottom line.
+					; 
+	CALL SW_LF_Across
 	RET				; That's all here
 
-;SW_LF_Across
-;	INC	HL			; HL = HL + 1
-;	LD	A,H
-;	AND	A,%00000111		; Mask back into range of screen
-;	ADD	A,#C0			; Add base of screen address
-;	LD	H,A
-;	RET
+SW_LF_Across
+	INC	HL			; HL = HL + 1
+	LD	A,H
+	AND	%00000111		; Mask back into range of screen
+	ADD	A,#C0			; Add base of screen address
+	LD	H,A
+	RET
 
 
 
@@ -301,8 +302,7 @@ SW_FF					; Clear the screen
 
 	CALL	MC_WAIT_FLYBACK
 
-	CALL	KL_U_ROM_DISABLE	; Disable upper rom (for m4)
-	LD	(RomState),A
+	call romdis
 
 	LD	HL,#C000		; From
 	LD	DE,#C001		; To
@@ -310,8 +310,7 @@ SW_FF					; Clear the screen
 	LD	(HL),0
 	LDIR
 
-	LD	A,(RomState)
-	CALL	KL_ROM_RESTORE ; Restore m4.
+	call romen
 
 	XOR	A
 	LD	BC,(ink0)
@@ -324,11 +323,11 @@ SW_FF					; Clear the screen
 	LD	A,#C9			; Prevent clear screen
 	LD	(JSW_FF),A		; until something written
 
-	LD	A,(JScrnBuf)		; Is the buffer on?
-	LD	(SW_FF_JBuf),A
-	CALL	SW_FF_JBuf
+	; LD	A,(JScrnBuf)		; Is the buffer on?
+	; LD	(SW_FF_JBuf),A
+	; CALL	SW_FF_JBuf
 	
-	JP	SWR_LF
+	;JP	SWR_LF
 
 
 SW_CR
@@ -339,99 +338,10 @@ SW_CR
 
 SW_Ansi
 	LD	A,#C9
-	LD	(JScrnBuf),A		; Screen buffer off
 	LD	(JScreenWrite),A	; Screen display off
 	XOR	A
 	LD	(JAnsi),A		; Ansi display on
 	JP	SWR_None
-
-;	SCREEN BUFFER CHARACTER UPDATE
-;	Entry A = character  
-;
-JScrnBuf	DB	0		; Runtime flag  0 = on; #c9 = off
-ScrnBuf
-	PUSH	AF			; Save character
-	LD	HL,(CursorPosition)	; Where are we?
-	CALL	GetAddress		; Find where to put DB
-	LD	(HL),A			; and save it there
-	LD	A,(fontset)
-	LD	DE,2048			; Move to attrib block
-	ADD	HL,DE
-	LD	(HL),A
-	POP	AF			; Restore character
-	RET
-
-;	Roll buffer down
-;
-SW_LF_JBuf
-	DB	0			; Gets set at runtime; self modifying
-SW_LF_Buf
-	LD	BC,screen_depth-1*80	; #
-	LD	HL,Screen_C+80		; FROM
-	LD	DE,Screen_C		; TO
-	LDIR
-	LD	BC,screen_depth-1*80	; #
-	LD	HL,Screen_A+80		; FROM
-	LD	DE,Screen_A		; TO
-	LDIR
-
-	LD	HL,screen_depth-1*80+Screen_C
-	LD	DE,screen_depth-1*80+Screen_C+1
-	LD	BC,79
-	LD	(HL),32
-	LDIR
-	LD	HL,screen_depth-1*80+Screen_A
-	LD	DE,screen_depth-1*80+Screen_A+1
-	LD	BC,79
-	LD	(HL),0
-	LDIR	
-	RET
-
-;	Clear buffer
-;
-SW_FF_JBuf
-	DB	0			; Runtime option; 0 = on,#c9 =off
-SW_FF_Buf
-	LD	BC,2047			; Length of block -1 (start 1 up)
-	LD	HL,Screen_C		; FROM
-	LD	DE,Screen_C+1		; TO , overlapping
-	LD	(HL),32			; Fill first DB
-	LDIR
-	LD	BC,2047			; Length
-	LD	HL,Screen_A		; FROM
-	LD	DE,Screen_A+1		; TO, overlapping
-	LD	(HL),0			; Fill first DB
-	LDIR
-	RET            
-
-;---------------------------------------
-;
-;	GET ADDRESS
-;
-;	This routine finds the address
-;	to put the DB into
-;
-;	Entry - HL = Cursor position
-;	Exit  - HL = Address wanted
-;	Used  - DE,BC
-;
-;---------------------------------------
-GetAddress
-	PUSH	AF
-	PUSH	HL
-	LD	A,L			; Get row in A
-	ADD	L			; double row number
-	LD	L,A			; Get low DB into L
-	LD	H,highaddressbuffer	; Get high DB into H
-	LD	E,(HL)			; Get into DE
-	INC	HL
-	LD	D,(HL)
-	POP	HL
-	LD	L,H			; Prepare value to add
-	LD	H,0
-	ADD	HL,DE			; Offset now in HL
-	POP	AF
-	RET
 
 ;---------------------------------------
 ;
@@ -448,9 +358,7 @@ GetAddress
 ;---------------------------------------
 ToggleCursor
 
-	//need to d
-	CALL	KL_U_ROM_DISABLE	; Disable upper rom
-	LD	(RomState),A
+	CALL ROMDIS
 
 	LD	HL,(CursorPosition)	; Get position on screen
 	CALL	FindCursor		; Find out where we are!
@@ -509,8 +417,7 @@ ToggleCursor
 	CPL
 	LD	(HL),A
 	
-	LD	A,(RomState)
-	CALL	KL_ROM_RESTORE
+	CALL ROMEN
 
 	RET				; Back to life
 
@@ -580,8 +487,8 @@ OffCursorInterupt
 ;
 ;---------------------------------------
 ; *** A couple of equates for fast changes first
-C_Time_Off	EQU	30
-C_Time_On	EQU	50
+C_Time_Off	EQU	10
+C_Time_On	EQU	30
 ; *** Now the actual code
 ChangeCursor
 JChangeCursor
@@ -642,7 +549,7 @@ CC_Turn_Off
 ;
 ;	FIND SCREEN DB
 ;
-;	Finds appropriate DB in screen
+;	Finds appropriate Byte in screen
 ;	memory for cursor position
 ;
 ;	Entry - HL = Cursor position
@@ -654,9 +561,11 @@ FindCursor
 	PUSH	AF
 	PUSH	DE
 	PUSH	HL
+
 	LD	A,L			; Get row in A
 	ADD	L			; double row number
 	LD	L,A			; Get low DB into L
+
 	LD	H,HighScreenAddress	; Get high DB into H
 	LD	E,(HL)			; Get into DE
 	INC	HL
@@ -775,3 +684,17 @@ Sm1	LD	(HL),A		; 0 all DBs -- ie, concealed
 	POP	HL
 	RET
 ENDIF
+
+ROMDIS
+	push af
+	CALL	KL_U_ROM_DISABLE	; Disable upper rom (for m4)
+	LD	(RomState),A
+	pop af
+	Ret
+
+ROMEN
+	push af
+	LD	A,(RomState)
+	CALL	KL_ROM_RESTORE ; Restore m4.
+	pop af
+	ret

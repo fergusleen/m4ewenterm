@@ -1,6 +1,11 @@
 ; Assembled with Rasm for Z80
 ; Converting from Maxam to Rasm
 
+; An ANSI Telnet client for the Amstrad CPC with M4 Board
+; Based on Ewenterm (https://ewen.mcneill.gen.nz/programs/cpc/ewenterm/) 1990
+; and Duke's M4 Examples (https://github.com/M4Duke/M4examples/blob/master/telnet.s) 2018
+; F Leen November 2023
+
 ;LIMIT #9700            ; Finish before #9700 or ELSE!
 
 
@@ -23,10 +28,6 @@ colour      equ true
 
 Characterset  equ #6800
 HCharSet      equ #0068   ; Rasm uses a full 16-bit format, even if the high byte is 00
-
-Screen_C      equ #5800
-Screen_A      equ #6000
-Out_Buffer    equ #5000
 
 top
 
@@ -114,12 +115,12 @@ login
 command_table
     dw rsx_names
     jp term
-    jp setup
+;    jp setup
     ;  rest of the commands 
 
 rsx_names
     str 'TERM'       ; Terminal program
-    str	'SETUP'			; Configuration program
+;    str	'SETUP'			; Configuration program
     db 0 
 
 rsx_data_area
@@ -128,10 +129,8 @@ rsx_data_area
     include "mainline.s"
     include "ansiterm.s"
     include "screen.s"
-    include "setp.s"
     include "urlmenu.s"
     include "telnetfunc2.s"
-
     include "data.s"
 
 

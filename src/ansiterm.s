@@ -46,7 +46,7 @@ AnsiFound
 	LD	A,#C9
 	LD	(JAnsi),A	; Turn itself off now
 	XOR	A		; zero end of sequence marker
-	LD	(JScrnBuf),A
+	;LD	(JScrnBuf),A
 	LD	(JScreenWrite),A
 
 	LD	HL,(NumberPos)	; Get value of number buffer
@@ -74,6 +74,7 @@ AF1	INC	HL
 ;
 ;	Now work out what happens
 ;
+WHATISIT
 	CP	"A"		; Check for supported Ansi characters
 	JP	Z,CUU		; Upwards
 	CP	"B"
@@ -88,8 +89,8 @@ AF1	INC	HL
 	JP	Z,HVP		; Locate
 	CP	"J"
 	JP	Z,ED		; Clear screen
-	CP	"c"
-	JP	Z,ED3		; RIS - fl Clear screen
+	; CP	"c"
+	; JP	Z,ED3		; RIS - fl Clear screen
 	CP	"m"
 	JP	Z,SGR		; Set graphics renditon
 	CP	"K"
@@ -126,14 +127,14 @@ AnsiFirst
 	JP	Z,AnsiMore		; and are legal
 	CP	"["
 	JP	Z,AnsiMore
-	CP	"c"
-	JP	Z,AnsiFound		; Clear screen (RIS - FL)
+	; CP	"c"
+	; JP	Z,AnsiFound		; Clear screen (RIS - FL)
 	CP	#9B			; CSI
 	JP	Z,AnsiF1		; Pretend that "[" was first ;-)
 	LD	A,#C9
 	LD	(JAnsi),A		; Turn itself off now
 	XOR	A			; and turn the screen back on
-	LD	(JScrnBuf),A
+	;LD	(JScrnBuf),A
 	LD	(JScreenWrite),A
 	JP	AnsiExit		; = and > don't have anything to follow
 					; them but are legal  
@@ -322,62 +323,65 @@ ED	CALL	GetNumber
 ED3	LD	HL,0
 	LD	(CursorPosition),HL	; Home the cursor
 
-	LD	A,(JSW_FF)
-	OR	A
-	JP	NZ,ED_Set_LF
+	; LD	A,(JSW_FF)
+	; OR	A
+	; JP	NZ,ED_Set_LF
 
-	XOR	A			; Save inks
-	CALL	SCR_GET_INK
+	; XOR	A			; Save inks
+	; CALL	SCR_GET_INK
 	
-	LD	(Ink0),BC
+	; LD	(Ink0),BC
 
-	LD	A,1
-	CALL	SCR_GET_INK
+	; LD	A,1
+	; CALL	SCR_GET_INK
 
-	LD	(Ink1),BC
+	; LD	(Ink1),BC
 
-	XOR	A			; Blank the inks
-	LD	B,A
-	LD	C,A
-	CALL	SCR_SET_INK
+	; XOR	A			; Blank the inks
+	; LD	B,A
+	; LD	C,A
+	; CALL	SCR_SET_INK
 	
-	LD	A,1
-	LD	B,0
-	LD	C,B
-	CALL	SCR_SET_INK
+	; LD	A,1
+	; LD	B,0
+	; LD	C,B
+	; CALL	SCR_SET_INK
 
 	CALL	MC_WAIT_FLYBACK
 
-	CALL	KL_U_ROM_DISABLE	; Disable upper rom
-	LD	(RomState),A
 
-	LD	HL,#C000		; From
-	LD	DE,#C001		; To
-	LD	BC,16383		; Screen length
-	LD	(HL),0
-	LDIR
-	LD	A,(RomState)
-	CALL	KL_ROM_RESTORE
+	; call romdis
+	; LD	HL,#C000		; From
+	; LD	DE,#C001		; To
+	; LD	BC,16383		; Screen length
+	; LD	(HL),0
+	; LDIR
+	; call romen
+		LD	A,2
+	CALL	SCR_SET_MODE
+		LD	HL,0			; No offset, just set mode
+	LD	(ScreenOffset),HL
+	; XOR	A
+	; LD	BC,(ink0)
+	; CALL	SCR_SET_INK
 
-	XOR	A
-	LD	BC,(ink0)
-	CALL	SCR_SET_INK
+	; LD	A,1
+	; LD	BC,(ink1)
+	; CALL	SCR_SET_INK
+	; LD	A,#C9			; Prevent clear screen
+	; LD	(JSW_FF),A		; until something written
 
-	LD	A,1
-	LD	BC,(ink1)
-	CALL	SCR_SET_INK
-	LD	A,#C9			; Prevent clear screen
-	LD	(JSW_FF),A		; until something written
-
-	CALL	SW_FF_Buf	; And clear buffer too
+	;CALL	SW_FF_Buf	; And clear buffer too
 				; No messing around -- local routines
 				; do NOT use Ansi
 	
+
 	JP	AnsiExit
 
 ED_Set_LF
 	XOR	A			; Note simply so that
 	LD	(JSW_LF),A		; ESC[2J works the same as CTRL-L
+	CAll JSW_LF
 	JP	AnsiExit
 
 ;***	Option 0
@@ -416,21 +420,21 @@ ED1_2
 	ADD	HL,DE
 
 	PUSH	HL			; Value saved for later
-
+	call romdis
 	LD	HL,(CursorPosition)	; _that_ value again!
+
 	CALL	FindCursor		; So where does it all begin?
-	
+
 	POP	BC			; Number to blank
         PUSH	BC			; Save for a moment!
 
 	CALL	ScreenBlank		; Now do it!
-
-	LD	HL,(CursorPosition)	; Get the cursor position again
-	CALL	GetAddress		; Address in buffer
+	call romen
+	; LD	HL,(CursorPosition)	; Get the cursor position again
+	; CALL	GetAddress		; Address in buffer
 	
 	POP	BC
-
-	CALL	BufferBlank
+	;CALL	BufferBlank
 	JP	AnsiExit		; Then exit properly
 
 ;***	Option	1
@@ -463,18 +467,19 @@ ED2_2
 	PUSH	HL			; Value saved for later
 
 	LD	HL,0			; Find the begining!
+	call romdis
 	CALL	FindCursor		; So where does it all begin?
 	
 	POP	BC			; Number to blank
 	PUSH	BC			; Save for a while
 
 	CALL	ScreenBlank		; Now do it!
-
+	call romen
 	LD	HL,0			; Find start position
-	CALL	GetAddress		; Address in buffer
+	; CALL	GetAddress		; Address in buffer
 	POP	BC
 	
-	CALL	BufferBlank
+	; CALL	BufferBlank
 
 
 	JP	AnsiExit		; Then exit properly
@@ -497,17 +502,18 @@ EL	CALL	GetNumber		; Get value
 	LD	HL,(CursorPosition)
 	LD	H,0
 	PUSH	HL
+	call romdis
 	CALL	FindCursor		; Start of line position
 	
 	LD	BC,80			; 80 bytes to clear (whole line)
 	
 	CALL	ScreenBlank
-
+	call romen
 	POP	HL
-	CALL	GetAddress
-	LD	BC,80
+	; CALL	GetAddress
+	; LD	BC,80
 	
-	CALL	BufferBlank
+	; CALL	BufferBlank
 
 	JP	AnsiExit
 
@@ -521,16 +527,13 @@ EL1	LD	HL,(CursorPosition)
 	PUSH	BC
 	PUSH	HL
 	PUSH	BC
+	call romdis
 	CALL	FindCursor	; Find current position
 	POP	BC
 	CALL	ScreenBlank
-	
+	call romen
 	POP	HL
-	CALL	GetAddress
 	POP	BC
-	
-	CALL	BufferBlank
-
 	JP	AnsiExit
 
 ;***	Option 1
@@ -542,15 +545,17 @@ EL2	LD	HL,(CursorPosition)
 	PUSH	BC
 	PUSH	HL
 	PUSH	BC
+	call romdis
 	CALL	FindCursor	; Find start of line
+
 	POP	BC
 	CALL	ScreenBlank
-
+	call romen
 	POP	HL
-	CALL	GetAddress
+;	CALL	GetAddress
 	POP	BC
 	
-	CALL	BufferBlank
+;	CALL	BufferBlank
 
 	JP	AnsiExit
 
@@ -588,50 +593,45 @@ SBD2
 	LD	A,C
 	OR	B
 	JR	NZ,ScreenBlank_Next
-	LD	A,(RomState)
-	CALL	KL_ROM_RESTORE
 
 	RET
 
 ScreenBlank_Across
-	CALL	KL_U_ROM_DISABLE	; Disable upper rom
-	LD	(RomState),A
 	INC	HL			; HL = HL + 1
 	LD	A,H
-	AND	0b00000111		; Mask back into range of screen
+	AND	%00000111		; Mask back into range of screen
 	ADD	A,#C0			; Add base of screen address
 	LD	H,A
-	LD	A,(RomState)
-	CALL	KL_ROM_RESTORE
+
 	RET
 
 BufferBlank
 ; 	HL = address
 ;	BC = length
-	PUSH	HL			; 1 for later!
-	LD	D,H
-	LD	E,L
-;	PUSH	HL
-;	POP	DE
-	INC	DE			; DE <- HL +1
-	PUSH	BC			; Save the value a little longer!
-	LD	(HL),32			; Blank this area!
-	LDIR				; *** just like magic ***
-					;     only I forgot it in 22a!
+; 	PUSH	HL			; 1 for later!
+; 	LD	D,H
+; 	LD	E,L
+; ;	PUSH	HL
+; ;	POP	DE
+; 	INC	DE			; DE <- HL +1
+; 	PUSH	BC			; Save the value a little longer!
+; 	LD	(HL),32			; Blank this area!
+; 	LDIR				; *** just like magic ***
+; 					;     only I forgot it in 22a!
 
 
-	POP	BC			; Restore values
-	POP	HL
-	LD      DE,2048			; Move to attributes block
-	ADD	HL,DE
-	LD	D,H
-	LD	E,L
-;	PUSH	HL
-;	POP	DE
-	INC	DE			; DE = HL + 1
-	LD	A,(fontset)		; Save in the current values
-	LD	(HL),A
-	LDIR
+; 	POP	BC			; Restore values
+; 	POP	HL
+; 	LD      DE,2048			; Move to attributes block
+; 	ADD	HL,DE
+; 	LD	D,H
+; 	LD	E,L
+; ;	PUSH	HL
+; ;	POP	DE
+; 	INC	DE			; DE = HL + 1
+; 	LD	A,(fontset)		; Save in the current values
+; 	LD	(HL),A
+; 	LDIR
 	RET
 
 ;***	ANSI SET GRAPHICS RENDITION

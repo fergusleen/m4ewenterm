@@ -320,35 +320,6 @@ HighRemoteTrans	EQU	RemoteTrans/#100
 ;HighRemoteBlock	EQU	RemoteBlock/#100
 
 
-
-AddressBuffer
-	dw	0*80+Screen_C
-	dw	1*80+Screen_C
-	dw	2*80+Screen_C
-	dw	3*80+Screen_C
-	dw	4*80+Screen_C
-	dw	5*80+Screen_C
-	dw	6*80+Screen_C
-	dw	7*80+Screen_C
-	dw	8*80+Screen_C
-	dw	9*80+Screen_C
-	dw	10*80+Screen_C
-	dw	11*80+Screen_C
-	dw	12*80+Screen_C
-	dw	13*80+Screen_C
-	dw	14*80+Screen_C
-	dw	15*80+Screen_C
-	dw	16*80+Screen_C
-	dw	17*80+Screen_C
-	dw	18*80+Screen_C
-	dw	19*80+Screen_C
-	dw	20*80+Screen_C
-	dw	21*80+Screen_C
-	dw	22*80+Screen_C
-	dw	23*80+Screen_C
-	dw	24*80+Screen_C
-HighAddressBuffer	EQU	AddressBuffer/#100
-
 Character
 	ds	8		; To buffer character to be printed	
 CursorPosition
@@ -421,7 +392,7 @@ TablesLength	EQU	LastAddress - Bottom
 	PRINT	"---------------"
 	PRINT	" "
 	PRINT	"Screen Address", {hex}ScreenAddress
-	PRINT	"Address Buffer",{hex}AddressBuffer
+;	PRINT	"Address Buffer",{hex}AddressBuffer
 	PRINT	"Out Buffer ",{hex}OutBuffer
 	PRINT   "In Buffer  ",{hex}Buffer
 

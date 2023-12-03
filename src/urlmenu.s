@@ -144,7 +144,9 @@ got_port:
 			ret
 
 			
-dnslookup:	ld		hl,(0xFF02)	; get response buffer address
+dnslookup:	
+            call romen
+            ld		hl,(0xFF02)	; get response buffer address
 			push	hl
 			pop		iy
 			

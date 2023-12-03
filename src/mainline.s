@@ -8,11 +8,6 @@ term
 
 	LD	A,2
 	CALL	SCR_SET_MODE
-
-	; CALL	KL_U_ROM_DISABLE	; Disable upper rom
-	; LD	(RomState),A
-
-	CALL	SetBuf			; Setup buffering
 	
 	LD	A,66			; ESC key
 	CALL	KM_GET_TRANSLATE	; Get current normal setting
@@ -97,7 +92,7 @@ Exit_1
 	LD	A,#C9
 	LD	(JAnsi),A
 	XOR	A
-	LD	(JScrnBuf),A
+	;LD	(JScrnBuf),A
 	LD	(JScreenWrite),A
 ;	CALL	JCloseFile
 	CALL	OffCursorInterupt
@@ -109,127 +104,6 @@ Exit_1
 	LD	(NumberPos),HL
 	RET
 
-
-
-;----------------------------------------
-;
-;	SENDOUT
-;
-;	This routine outputs characters
-;	to the modem
-;       Entry - A = Character
-;	Exit  - None
-;	Used  - None
-;
-;----------------------------------------
-JRemoteEcho
-	DEFB	#C9			; Remote echo location 0 means on
-SendOut
-	PUSH	AF			; Save registers
-	PUSH	HL
-;	LD	H,HighRemoteBlock	; Put character through block mask
-;	LD	L,A                     ; Will be zero if masked out
-;	LD	A,(HL)
-;	OR	A
-;	JR	Z,SOexit		; If masked then exit now
-; *** 22b - back to old translation tables  Seems better
-
-	LD	H,HighRemoteTrans	; Put through translation table
-	LD	L,A
-	LD	A,(HL)			; Got the translation, no use it!
-	OR	A
-	JR	Z,SOexit
-
-	CP	9			; Is it TAB?
-	JP	NZ,SO1
-	CALL	JRTabExpand
-	JP	SOexit
-SO1	CALL	WriteBuffer		; Send character out
-	CP	8			; Is it DEL?
-	CALL	Z,JRDestDel
-	CP	13			; Is it CR?
-	CALL	Z,JRAddLF
-SOexit	POP	HL			; Restore registers
-	POP	AF
-	RET
-
-;----------------------------------------
-;
-;	REMOTE DESTRUCTIVE DELETE
-;
-;	This echos a 32 then an 8 to go
-;	with the other 8, overwriting
-;	the space
-;	Entry - None
-;	Exit  - None
-; 	Used  - AF
-;
-;-----------------------------------------
-JRDestDel
-	DEFB	#C9			; Remote Destructive Delete 0 = on
-RemoteDestDel
-	LD	A,32
-	CALL	WriteBuffer
-	LD	A,8
-	JP	WriteBuffer
-
-;------------------------------------------
-;
-;	REMOTE ADD LF TO CR
-;
-;	This will add a LF to the previously
-;	printed CR
-;	Entry - None
-;	Exit  - None
-;	Used  - AF
-;
-;-------------------------------------------
-JRAddLF
-	DEFB	#C9			; Remote Add LF to CR 0 means on
-RemoteAddLF
-	LD	A,10
-	JP	WriteBuffer
-
-;--------------------------------------------
-;
-;	REMOTE TAB EXPANDER
-;
-;	This will expand a TAB to a string
-;	of spaces TAB stops set at every 8
-;	Entry - None
-;	Exit  - None
-;	Used  - AF
-;
-;---------------------------------------------
-JRTabExpand
-	BIT	0,(IY+2)
-	JP	NZ,WriteBuffer
-RemoteTabExpand
-	PUSH	HL
-	CALL	TXT_GET_CURSOR
-	LD	A,H			; Put column in A
-	CP	72			; Is it greater than last tab stop?
-	JR	NC,rt4			; If so then replace it with a
-					; CR
-	DEC	A			; Convert from Logical to Physical
-					; coordinates, ie left edge = 0
-rt1	CP	8			; Is it less than 8
-	JR	C,rt2
-	SUB	A,8			; Reduce A by 8
-	JP	rt1			; Go and check again
-rt2	LD	B,A			; B = 8 - A
-	LD	A,8
-	SUB	B
-	LD	B,A
-	LD	A,32
-rt3	CALL	WriteBuffer		; Then send the character
-	DJNZ	rt3
-	POP	HL			; Restore HL
-	RET
-rt4	LD	A,13			; Print a CR (with LF if on)
-	CALL	SendOut
-	POP	HL
-	RET
 
 
 	
@@ -249,29 +123,13 @@ JLocalEcho
 PrintChar
 	PUSH	AF			; Save AF
 	PUSH	HL			; Save HL
-;	LD	H,HighLocalBlock	; Put character through block mask
-;	LD	L,A                     ; Will be zero if masked out
-;	LD	A,(HL)
-;	OR	A
-;	JR	Z,PCexit		; If masked then exit now
-; *** 22b - back to old translation tables  Seems better
-
 	LD	H,HighLocalTrans	; Put through translation table
 	LD	L,A
 	LD	A,(HL)			; Now use the value!
 
 	OR	A
 	JP	Z,PCexit
-;	Now dealt with in the screen output routine
-;
-;	CP	27			; Does it start an Ansi sequence?
-;	JR	NZ,PrintC1
-;	LD	A,#C9
-;	LD	(JScrnBuf),A		; Screen buffer off
-;	LD	(JScreenWrite),A	; Screen display off
-;	XOR	A
-;	LD	(JAnsi),A		; Ansi display on
-;	JP	PCexit
+
 PrintC1
 	CP	9			; Is it TAB?
 	JP	NZ,PC1
