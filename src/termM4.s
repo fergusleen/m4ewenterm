@@ -1,25 +1,21 @@
 ; Assembled with Rasm for Z80
-; Converting from Maxam to Rasm
 
 ; An ANSI Telnet client for the Amstrad CPC with M4 Board
-; Based on Ewenterm (https://ewen.mcneill.gen.nz/programs/cpc/ewenterm/) 1990
-; and Duke's M4 Examples (https://github.com/M4Duke/M4examples/blob/master/telnet.s) 2018
-; F Leen November 2023
+; Based on Ewenterm (https://ewen.mcneill.gen.nz/programs/cpc/ewenterm/) 1991
+; and Duke's M4 telnet Example (https://github.com/M4Duke/M4examples/blob/master/telnet.s) 2018
+; Fergus Leen November 2023
 
-;LIMIT #9700            ; Finish before #9700 or ELSE!
 
 
 true        equ 1
 false       equ 0
 on          equ true
 off         equ false
-screen_depth    equ 24
+screen_depth    equ 25
 
 
 colour      equ true
 
-
-;See historydoc file for history of program
 
     org #7000 ; Start assembling at #7000, Charset loaded at runtime now
     nolist
@@ -59,6 +55,16 @@ SCR_GET_MODE		EQU	#BC11
 SCR_CLEAR		EQU	#BC14
 SCR_SET_INK		EQU	#BC32
 SCR_GET_INK		EQU	#BC35
+; 111   &BC4D   SCR HW ROLL
+;       Action: Scrolls the entire screen  up  or  down  by eight pixel
+;               rows (ie one character line)
+;       Entry:  B holds the  direction  that  the  screen  will roll, A
+;               holds the encoded PAPER which  the new line will appear
+;               in
+;       Exit:   AF, BC, DE  and  HL  are  corrupt,  and  all others are
+;               preserved
+;       Notes:  This alters the screen  offset;  to  roll  down, B must
+;               hold zero, and to roll upwards B must be non-zero
 SCR_HW_ROLL		EQU	#BC4D
 ;***	Machine pack
 MC_WAIT_FLYBACK		EQU	#BD19
@@ -115,18 +121,16 @@ login
 command_table
     dw rsx_names
     jp term
-;    jp setup
-    ;  rest of the commands 
+
 
 rsx_names
     str 'TERM'       ; Terminal program
-;    str	'SETUP'			; Configuration program
     db 0 
 
 rsx_data_area
     ds 4               ; 4 bytes for RSX workspace
 
-    include "mainline.s"
+    include "main.s"
     include "ansiterm.s"
     include "screen.s"
     include "urlmenu.s"

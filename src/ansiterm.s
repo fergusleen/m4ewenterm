@@ -322,10 +322,13 @@ ED	CALL	GetNumber
 ;
 ED3	LD	HL,0
 	LD	(CursorPosition),HL	; Home the cursor
+	LD	(ScreenOffset),HL
+	CALL	SCR_SET_OFFSET		; Tell the hardware about it
+	LD	A,(JSW_FF)
+	OR	A
+	JP	NZ,ED_Set_LF
 
-	; LD	A,(JSW_FF)
-	; OR	A
-	; JP	NZ,ED_Set_LF
+	; comment this out as the shutter effect is nice!
 
 	; XOR	A			; Save inks
 	; CALL	SCR_GET_INK
@@ -350,17 +353,14 @@ ED3	LD	HL,0
 	CALL	MC_WAIT_FLYBACK
 
 
-	; call romdis
-	; LD	HL,#C000		; From
-	; LD	DE,#C001		; To
-	; LD	BC,16383		; Screen length
-	; LD	(HL),0
-	; LDIR
-	; call romen
-		LD	A,2
-	CALL	SCR_SET_MODE
-		LD	HL,0			; No offset, just set mode
-	LD	(ScreenOffset),HL
+	call romdis
+	LD	HL,#C000		; From
+	LD	DE,#C001		; To
+	LD	BC,16383		; Screen length
+	LD	(HL),0
+	LDIR
+	call romen
+
 	; XOR	A
 	; LD	BC,(ink0)
 	; CALL	SCR_SET_INK
@@ -368,13 +368,8 @@ ED3	LD	HL,0
 	; LD	A,1
 	; LD	BC,(ink1)
 	; CALL	SCR_SET_INK
-	; LD	A,#C9			; Prevent clear screen
-	; LD	(JSW_FF),A		; until something written
-
-	;CALL	SW_FF_Buf	; And clear buffer too
-				; No messing around -- local routines
-				; do NOT use Ansi
-	
+	LD	A,#C9			; Prevent clear screen
+	LD	(JSW_FF),A		; until something written
 
 	JP	AnsiExit
 
@@ -655,12 +650,10 @@ SGR	CALL	GetNumber
 	CALL	Z,ItalicOn
 	CP	7
 	CALL	Z,InverseOn
-IF Colour
 	CP	8
 	CALL	Z,Samebackfore
 	CP	29		; 30 to 37 are foreground colours
 	CALL	NC,Back_Fore
-ENDIF
 	JP	SGR		; Code is re-entrant
 
 ;--------------------------------
@@ -678,14 +671,12 @@ AllOff:
 	LD	(JItalics),A
 	LD	(JUnder),A
 	LD	(JInverse),A
-IF Colour
 	LD	(JSmash),A
 	LD	(JHighInt),A
 	XOR	A		; Reset background to black
 	LD	(backcolour),A
 	LD	A,7		; Reset foreground to white
 	LD	(forecolour),A
-ENDIF
 	XOR	A
 	LD	(fontset),A	; Reset the bit map store
 	POP	AF		; Restore register
@@ -702,7 +693,6 @@ ENDIF
 BoldOn	PUSH	AF		; Save register
 	XOR	A		; 0 means on
 	LD	(JBold),A
-IF Colour
 	LD	(JHighInt),A
 	LD	A,(forecolour)	; And update the foreground colour,
 	CP	8		; (if less than 8)
@@ -714,7 +704,6 @@ IF Colour
 	LD	A,#C9		; If bold is on, then it only affects fore
 	LD	(JSmash),A	; So we MUST NOT clear the character
 BOn1
-ENDIF
 	LD	A,(fontset)
 	SET	0,A		; turn ON indicator flag
 	LD	(fontset),A
@@ -734,7 +723,6 @@ BoldOff
 	PUSH	BC
 	LD	A,#C9		; #C9 means off
 	LD	(JBold),A
-IF Colour
 	LD	(JHighInt),A
 	LD	A,(forecolour)	; And update the foreground colour
 	CP	8		; so long as it is above 8
@@ -747,7 +735,6 @@ IF Colour
 	LD	A,C
 	CALL	SmashThem	; Do we now clear the colour?
 BO1
-ENDIF
 	LD	A,(fontset)
 	RES	0,A		; turn OFF indicator flag
 	LD	(fontset),A
@@ -803,14 +790,12 @@ InverseOn
 	PUSH	AF		; Save register
 	XOR	A		; 0 means on
 	LD	(JInverse),A
-IF	Colour
 	LD	A,(backcolour)	; Save back colour
 	PUSH	AF
 	LD	A,(forecolour)	; Copy fore colour into back colour
 	LD	(backcolour),A
 	POP	AF		; Retrieve back colour, and copy into 
 	LD	(forecolour),A	; fore colour
-ENDIF
 	LD	A,(fontset)
 	SET	3,A		; turn ON indicator flag
 	LD	(fontset),A
@@ -827,7 +812,6 @@ ENDIF
 ;	Used  - None
 ;	
 ;--------------------------------
-IF Colour
 Samebackfore
 	PUSH	AF
 	LD	A,(backcolour)	; Get background colour
@@ -994,7 +978,6 @@ JHighInt
 HighInt
 	ADD	8
 	RET
-ENDIF
 
 ;***	ANSI SAVE CURSOR POSITION
 ;

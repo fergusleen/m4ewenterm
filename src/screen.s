@@ -81,9 +81,9 @@ SW1
 	CALL	JBold
 	CALL	JUnder
 	CALL	JInverse
-IF Colour
+
 	CALL	JSmash
-ENDIF
+
 	call ROMDIS
 	EX	HL,DE
 	LD	HL,(CursorPosition)
@@ -257,8 +257,6 @@ SWLF1					; Now the hard bit
 	LD	B,255			; Scroll upwards
 	XOR	A			; Fill with 0's. FL- This is the paper.
 	CALL	SCR_HW_ROLL		; Move the screen up and blank the bottom line
-					; FL- Ok we have a bug here. SCR_HW_ROLL does not blank the bottom line.
-					; 
 	CALL SW_LF_Across
 	RET				; That's all here
 
@@ -327,7 +325,7 @@ SW_FF					; Clear the screen
 	; LD	(SW_FF_JBuf),A
 	; CALL	SW_FF_JBuf
 	
-	;JP	SWR_LF
+	JP	SWR_LF
 
 
 SW_CR

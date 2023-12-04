@@ -20,7 +20,7 @@ loop_ip:
 			call	disp_port
 			call	crlf
 			call	telnet_session
-			jr		loop_ip
+			jp		loop_ip
 			
 
 
@@ -553,3 +553,6 @@ n16_2:
 			;inc	de
 			
 			ret			
+
+
+            

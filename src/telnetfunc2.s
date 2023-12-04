@@ -14,6 +14,7 @@ start_telnet:
 
 
 telnet_session:
+			call romen
 		    ld		hl,(0xFF02)	; get response buffer address
 			push	hl
 			pop		iy
@@ -26,7 +27,6 @@ telnet_session:
 			cp		255
 			ret		z
 
-            ;call printchar
 			; store socket in predefined packets
 			
 			ld		(csocket),a
@@ -109,12 +109,10 @@ wait_send:	ld		a,(ix)
 			;ld		(isEscapeCode),a
 			
 			ld		a,(hl)
-			;call	txt_output
 			cp		0xD
 			jr		nz, plain_text
 			inc		hl
 			ld		a,0xA
-			;call	txt_output
 			ld		(hl),a
 			
 			ld		a,7
@@ -143,7 +141,7 @@ negotiate:
 		
 			ld		bc,2
 			call	recv
-			;just ignore for now ; What if telnet command longer?
+			;just dispose of these two bytes and ignore for now -FL ; What if telnet command longer?
  
 			cp		0xFF
 			jp		z, exit_close	
@@ -299,7 +297,7 @@ not_tel_cmd:
 
 
 			ld		b,a
-            call printchar ; Handoff to ewen term
+            call printchar ; Handoff to ewenterm
 
 			jp		recvdone
 
@@ -344,21 +342,11 @@ recv_cont:
 			cp		0				; all good ?
 
 			jr		z,recv_ok
-			; push	af
-			; call	disp_error
-			; pop		af
-            ;             ld c, #30
-            ; add a,c
-            ; call printchar
-            ; dec a,c
 			ld		bc,0
 			ret
 
 recv_ok:			
-            ; ld c, #30
-            ; add a,c
-            ; call printchar
-            ; dec a,c
+
 			ld		c,(iy+4)
 			ld		b,(iy+5)
 			ret
@@ -534,40 +522,6 @@ match_char:
 			ld		(m4_rom_num),a
 			ret
 
-
-start_rnd:
-    call Randomize  ; Initialize random number generator
-    call Rand       ; Get a random number
-    cp 95           ; Check if the number is within 95 (because we will add 32 later)
-    jr c, withinRange
-    ret
-    sub 95          ; If higher, subtract 95 to wrap around
-
-withinRange:
-    add a, 32       ; Add 32 to get into the ASCII printable range
-    ld b, a         ; Load the random ASCII character into B for printing
-  call Printchar  ; Print the character
-    ret             ; Return from the program
-
-; Randomize - Initialize the random number generator
-Randomize:
-    ld a, (#BC0A)   ; Load the current frame count into A
-    ld (#BD3B), a   ; Seed the random number generator
-    ret
-
-; Rand - Generate a random number
-Rand:
-    ld	a,23		; Seed is usually 0
-	ld	b,a
-	add	a,a
-	add	a,a
-	add	a,b
-	inc	a		; another possibility is ADD A,7
-	ld	(Rand+1),a
-    ret
-
-
-
 escape_val:	cp		2
 			jr		nz, has_value
 			xor		a
@@ -632,8 +586,8 @@ msgport:		db  " port ",0
 msgresolve:		db	10,13, "Resolving: ",0
 msgfail:		db 	", failed!", 10, 13, 0
 msgtitle:		db	"CPC telnet client v101 beta  Duke 2018",10,13,0
-msgtest:        db "Ewen M4 2023 - Based on Ewenterm (1990) and M4 Telnet demo (2018).",10,13,0
-msgtitle2:		db  "=================================================================",10,13,0
+msgtest:        db "EwenM4 2023 v1.0 - Based on Ewenterm (1991) and M4 telnet (2018)",10,13,0
+msgtitle2:		db  "================================================================",10,13,0
 msguserabort:	db	10,13,"User aborted (ESC)", 10, 13,0
 cmdsocket:		db	5
 				dw	C_NETSOCKET
