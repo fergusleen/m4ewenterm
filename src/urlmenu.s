@@ -1,6 +1,7 @@
 			; ask for server / ip
 loop_ip:
 
+            call drawline
 			ld		hl,msgserverip
 			call	disptextz
 			call	get_server
@@ -302,10 +303,14 @@ enterkey2:	ld		(hl),0
 			
 
 
-crlf:		ld		a,10
+crlf:		
+            push af
+            ld		a,10
 			call	printchar
 			ld		a,13
-			jp		printchar
+			call	printchar
+            pop af 
+            ret
 
 			
 			; HL = point to IP addr

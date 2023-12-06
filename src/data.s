@@ -1,106 +1,5 @@
 PRINT "DATA AND MISC ROUTINES"
-;------------------------------------------------------------
-;
-;	PRINT STRING
-;
-;	Routine to print string, to screen only
-;       Entry - HL points to string
-;	Exit  - None
-;	Used  - AF,HL
-;
-;	The top bit of the last letter of the string should
-;	be set to indicate the end of the string
-;
-;------------------------------------------------------------
-prints:	LD	A,(HL)		; Get first letter
-	OR	A
-	RET	Z		; If zero, then finished Exit
-	CALL	TXT_OUTPUT	; To the screen only
-	INC	HL		; Move to next character
-	JR	prints		; And loop back to print that
 
-;-----------------------------------------------
-;
-;	|CDUMP
-;
-;	Simple character based screen dump
-;	Entry - None
-;	Exit  - None
-;	Used  - IX,IY
-;
-;
-;-----------------------------------------------
- CharDump
-; 	PUSH	HL			; Save registers
-; 	PUSH	DE
-; 	PUSH	BC
-; 	PUSH	AF
-; 	LD	HL,Screen_C		; Screen buffer
-; 	LD	B,80
-; 	LD	C,25			; 80 chars across by 25 down
-; CDLoop	LD	A,(HL)			; Get character
-; 	INC	HL			; Next position
-; 	CALL	MC_PRINT_CHAR		; print it out
-; 	JR	NC,CD1
-; 	DJNZ	CDLoop
-; 	JR	CD2			; Go on with life
-; CD1
-; 	CALL	kissoflife		; try to fix the problem
-; 	JR	NC,abandonprint		; Abandon printing, if timed out
-; 	DEC 	HL			; Try the same character again
-; 	JR	CDLoop			; Back for more
-
-; CD2
-; 	LD	A,13			; Send CR/LF as well
-; 	CALL	MC_PRINT_CHAR
-; 	JR	C,CD3			; If that was okay, go on
-; 	CALL	kissoflife		; Try to fix the non response
-; 	JR	NC,abandonprint
-; 	JR	CD2			; Try again then
-
-; CD3	
-; 	LD	A,10			; Output a LF
-; 	CALL	MC_PRINT_CHAR
-; 	JR	C,CD4
-; 	CALL	kissoflife		; Try to fix the non response
-; 	JR	NC,abandonprint
-; 	JR	CD3			; Try it gain
-
-; CD4
-; 	DEC	C			; Zero set if zero now
-; 	LD	B,80			; Restore value of B
-; 	JR	NZ,CDLoop		; Back for more otherwise
-
-; printexit
-; 	POP	AF			; Restore registers
-; 	POP	BC
-; 	POP	DE
-; 	POP	HL
-; 	RET
-
-; abandonprint
-; 	LD	A,7			; A beep for failure
-; 	CALL	TXT_OUTPUT
-; 	JR	printexit		; And now exit
-
-; kissoflife				; Check if printer is alive
-; 					; C if alive again
-; 					; NC if dead
-; 	LD	DE,20000		; A few times around
-; kol1
-; 	CALL	MC_BUSY_PRINTER
-; 	CCF				; Pretend it is a MC_READ_PRINTER
-; 	RET	C			; If it okay now, return
-; 	DEC	DE			; Decrease counter
-; 	LD	A,D			; And check for zero
-; 	OR	E
-; 	JR	NZ,kol1			; Once more, unless finished
-; 	OR	A			; Reset Carry == NC
- 	RET
-
-; ; This delay should be enough  It should be over half a second
-; ; which on top of the 04 of a second in MC_PRINT_CHAR, should be
-; ; enough for most printers
 	
 
 ;----------------------------------------
@@ -139,10 +38,6 @@ char_position
 LDestDel	ds	1
 RDestDel	ds	1
 
-Put_Buffer	dw	0		; Buffering storage
-Get_Buffer	dw	0
-From_Buffer	db	0		; Buffering storage
-To_Buffer	db	0
 INK0		ds	2		; Save the ink colours
 INK1		ds	2
 SetupMessage	db	13,"Setup mode for Ewen-Term   ",0
@@ -175,21 +70,8 @@ RemoteTabExpandMessage
 		db	"(R) TAB EXPAND?",0
 Yes		db	"Yes",13,10,0
 No		db	"No",13,10,0
-;BufferPos	dw	AnsiBuffer		; Used by Ansi expander
-;Space		ds	20			; Used by Fonts routine
-;Old_Jump	ds	3
 Dat1		db	0
 Dat2		db	0
-;Bold_Dat	JP	Bold_Rtn		; Various jumpblocks
-;Italic_Dat	JP	Italic_Rtn	; ********
-;Under_Dat	JP	Under_Rtn	; Removed, because not needed
-;BoldSet	db	0		; in current setup
-;ItalicsSet	db	0		; ********
-;UnderSet	db	0
-;InverseSet	db	0
-;Bold_Jump	ds	3
-;Italics_Jump	ds	3
-;Under_Jump	ds	3
 Cursor_Pos	dw	0		; Cursor save position;default 0,0
 
 ScreenOffset	dw	0		; Offset from #C000 to start of screen
@@ -262,25 +144,6 @@ LocalTrans
 	DB	#F0,#F1,#F2,#F3,#F4,#F5,#F6,#F7,#F8,#F9,#FA,#FB,#FC,#FD,#FE,#FF
 HighLocalTrans	EQU	LocalTrans/#100
 
-;LocalBlock
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#00,#00,#00,#00,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;HighLocalBlock	EQU	LocalBlock/#100
-
 RemoteTrans
 	DB	#00,#01,#02,#03,#04,#05,#06,#07,#08,#09,#0A,#0B,#0C,#0D,#0E,#0F
 	DB	#10,#11,#12,#13,#14,#15,#16,#17,#18,#19,#1A,#1B,#1C,#1D,#1E,#1F
@@ -299,25 +162,6 @@ RemoteTrans
 	DB	#E0,#E1,#E2,#E3,#E4,#E5,#E6,#E7,#E8,#E9,#EA,#EB,#EC,#ED,#EE,#EF
 	DB	#F0,#F1,#F2,#F3,#F4,#F5,#F6,#F7,#F8,#F9,#FA,#FB,#FC,#FD,#FE,#FF
 HighRemoteTrans	EQU	RemoteTrans/#100
-
-;RemoteBlock
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;	DB	#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF,#FF
-;HighRemoteBlock	EQU	RemoteBlock/#100
 
 
 Character
@@ -367,13 +211,7 @@ HighHere	EQU	HereIam/#100
 NextHighHere	EQU	HighHere + 1
 
 Buffer		EQU	NextHighHere * #100
-;	ds	4*256			; 1024 db wrap around buffer, Sio in
-;High_Buffer	EQU	Buffer/#100
 
-;OutBuffer	EQU	HereIam + Fornexthigh + 1024	; Length of other
-							; buffer
-;	ds	256			; 256 db wrap around buffer, Sio out
-;High_Buffer_Out	EQU	OutBuffer/#100
 High_Buffer_Out	EQU	NextHighHere + 4
 OutBuffer	EQU	High_Buffer_Out * #100
 

@@ -425,8 +425,6 @@ ED1_2
 
 	CALL	ScreenBlank		; Now do it!
 	call romen
-	; LD	HL,(CursorPosition)	; Get the cursor position again
-	; CALL	GetAddress		; Address in buffer
 	
 	POP	BC
 	;CALL	BufferBlank
@@ -471,10 +469,8 @@ ED2_2
 	CALL	ScreenBlank		; Now do it!
 	call romen
 	LD	HL,0			; Find start position
-	; CALL	GetAddress		; Address in buffer
 	POP	BC
-	
-	; CALL	BufferBlank
+
 
 
 	JP	AnsiExit		; Then exit properly

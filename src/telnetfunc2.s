@@ -5,10 +5,7 @@ start_telnet:
 
             ld hl, msgtest
             call disptextz
-			call	crlf
-			ld		hl,msgtitle2
-			call	disptextz
-			call	crlf
+			call drawline
             call Check_m4
 			call loop_ip
 
@@ -212,7 +209,7 @@ _wait_send:	ld		a,(ix)
 			cp		2			; send in progress?
 			jr		z,_wait_send
 			cp		0
-			call	nz,disp_error	
+			call	nz,exit_close	
 			
 			ld		hl, cmdsend
 			call	sendcmd
@@ -379,6 +376,28 @@ disptextz:	ld 		a,(hl)
 			inc		hl
 			jr		disptextz
 
+
+drawline: 
+			push af
+			push bc
+			ld a, 196
+			call PrintChar80Times
+			pop bc
+			pop af
+
+; Routine to print a character 80 times
+; Input: A register holds the character to be printed
+PrintChar80Times:
+    		ld b, 80        ; Set loop counter to 80
+
+PrintLoop:
+			push bc         ; Save the loop counter
+			call PrintChar  ; Call routine to print the character in A
+			pop bc          ; Restore the loop counter
+			djnz PrintLoop  ; Decrement B and jump if not zero
+
+			ret             ; Return from routine
+
 			;
 			; Display error code in ascii (hex)
 			;
@@ -421,6 +440,7 @@ notuser:
 			ld		a,13
 			call	printchar
 			ret
+
 disphex:	ld		b,a
 			srl		a
 			srl		a
@@ -443,11 +463,12 @@ disphex:	ld		b,a
 			ret
 
 exit_close:
-			ld		hl,msguserabort
-            call disptextz
-			 call	disp_error
-			 ld		hl,cmdclose
-			 call	sendcmd
+			call crlf
+			call	disp_error
+
+			ld		hl,cmdclose
+			call	sendcmd
+			jp		loop_ip
 			ret
 
 
@@ -573,12 +594,12 @@ not_2digits:	ld	a,b
 
 
 
-msgconnclosed:	db	10,13,"Remote closed connection....",10,13,0
+msgconnclosed:	db	10,13,"Remote closed connection.",10,13,0
 msgsenderror:	db	10,13,"ERROR: ",0
 msgconnect:		db	10,13,"Connected.",10,13,0
 msgserverip:	db	10,13,"Input server name or IP (:PORT or default to 23):",10,13,0
 msgnom4:		db	"No M4 board found, bad luck :/",10,13,0
-msgfoundm4:		db	"Found M4 Board",10,13,0
+msgfoundm4:		db	"M4 Board installed",10,13,0
 msgverfail:		db	", you need v1.1.0 or higher.",10,13,0
 msgok:			db  ", OK.",10,13,0
 msgconnecting:	db	10,13, "Connecting to IP ",0
