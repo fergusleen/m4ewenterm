@@ -102,15 +102,6 @@ scr_reset		equ	0xBC0E
 scr_set_border	equ	0xBC38
 kl_rom_select	equ 0xb90f
 
-; telnet negotiation codes
-DO 				equ 0xfd
-WONT 			equ 0xfc
-WILL 			equ 0xfb
-DONT 			equ 0xfe
-CMD 			equ 0xff
-CMD_ECHO 		equ 1
-CMD_WINDOW_SIZE equ 31
-
 ; Define RSX command table and data area
 login
     ld bc, command_table
@@ -135,6 +126,7 @@ rsx_data_area
     include "screen.s"
     include "urlmenu.s"
     include "telnetfunc2.s"
+    include "negotiate.s"
     include "data.s"
 
 

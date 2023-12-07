@@ -1,4 +1,4 @@
-
+			;  Telnet functionality, send, recieve and M4 Board Identification
 
 start_telnet:	
 
@@ -132,121 +132,8 @@ plain_text:
 			
 			jp		mainloop
 
-			; call when CMD (0xFF) detected, read next two bytes of command
-			; IY = socket structure ptr
-negotiate:
-		
-			ld		bc,2
-			call	recv
-			;just dispose of these two bytes and ignore for now -FL ; What if telnet command longer?
- 
-			cp		0xFF
-			jp		z, exit_close	
-			cp		3
-			jp		z, exit_close
-            
-            ret
-			
-            xor		a
-			cp		c
-			jr		nz, check_negotiate
-			cp		b
-			jr		z,negotiate	; keep looping, want a reply. Could do other stuff here!
-			
-
-check_negotiate:	
-			
-			ld		a,(iy+6)
-			cp		0xFD	; DO
-			jr		nz, will_not
-			ld		a,(iy+7)
-			cp		CMD_WINDOW_SIZE	
-			jr		nz, will_not
-			; negotiate window size
-			ld		a,8
-			ld		(cmdsend),a
-			ld		hl,sendsize
-			ld		(hl),3
-			inc		hl
-			ld		(hl),0
-			inc		hl
-			ld		(hl),0xFF		; CMD
-			inc		hl
-			ld		(hl),0xFB		; WILL
-			inc		hl
-			ld		(hl),CMD_WINDOW_SIZE
-			
-			ld		hl, cmdsend
-			call	sendcmd
 
 
-			
-			ld		a,14
-			ld		(cmdsend),a
-			ld		hl,sendsize
-			ld		(hl),9
-			inc		hl
-			ld		(hl),0
-			inc		hl
-			ld		(hl),0xFF		; CMD
-			inc		hl
-			ld		(hl),0xFA		; SB sub negotiation
-			inc		hl
-			ld		(hl),CMD_WINDOW_SIZE
-			inc		hl
-			ld		(hl),0
-			inc		hl
-			ld		(hl),80
-			inc		hl
-			ld		(hl),0
-			inc		hl
-			ld		(hl),24
-			inc		hl
-			ld		(hl),255
-			inc		hl
-			ld		(hl),240		; End of subnegotiation parameters.
-_wait_send:	ld		a,(ix)
-			cp		2			; send in progress?
-			jr		z,_wait_send
-			cp		0
-			call	nz,exit_close	
-			
-			ld		hl, cmdsend
-			call	sendcmd
-			ret
-will_not:
-			
-			ld		a,(iy+6)
-			cp		0xFD			; DO
-			jr		nz, not_do
-			ld		a,0xFC			; WONT
-			jr		next_telcmd
-not_do:		cp		0xFC			; WILL
-			jr		nz, next_telcmd
-			ld		a,0xFD			; DO
-
-next_telcmd:
-
-			ld		hl,sendsize
-			ld		(hl),3
-			inc		hl
-			ld		(hl),0
-			inc		hl
-			ld		(hl),0xFF		; CMD
-			inc		hl
-			ld		(hl),a			;
-			inc		hl
-			ld		a,(iy+7)
-			ld		(hl),a			; 
-			
-			ld		a,8
-			ld		(cmdsend),a
-			
-			ld		hl, cmdsend
-			call	sendcmd
-
-
-			ret
 
 recv_noblock2:
 			push 	af

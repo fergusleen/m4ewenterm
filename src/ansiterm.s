@@ -471,8 +471,6 @@ ED2_2
 	LD	HL,0			; Find start position
 	POP	BC
 
-
-
 	JP	AnsiExit		; Then exit properly
 
 ; ***	ANSI CLEAR LINE
@@ -501,10 +499,6 @@ EL	CALL	GetNumber		; Get value
 	CALL	ScreenBlank
 	call romen
 	POP	HL
-	; CALL	GetAddress
-	; LD	BC,80
-	
-	; CALL	BufferBlank
 
 	JP	AnsiExit
 
@@ -543,10 +537,8 @@ EL2	LD	HL,(CursorPosition)
 	CALL	ScreenBlank
 	call romen
 	POP	HL
-;	CALL	GetAddress
 	POP	BC
-	
-;	CALL	BufferBlank
+
 
 	JP	AnsiExit
 
@@ -596,34 +588,7 @@ ScreenBlank_Across
 
 	RET
 
-BufferBlank
-; 	HL = address
-;	BC = length
-; 	PUSH	HL			; 1 for later!
-; 	LD	D,H
-; 	LD	E,L
-; ;	PUSH	HL
-; ;	POP	DE
-; 	INC	DE			; DE <- HL +1
-; 	PUSH	BC			; Save the value a little longer!
-; 	LD	(HL),32			; Blank this area!
-; 	LDIR				; *** just like magic ***
-; 					;     only I forgot it in 22a!
 
-
-; 	POP	BC			; Restore values
-; 	POP	HL
-; 	LD      DE,2048			; Move to attributes block
-; 	ADD	HL,DE
-; 	LD	D,H
-; 	LD	E,L
-; ;	PUSH	HL
-; ;	POP	DE
-; 	INC	DE			; DE = HL + 1
-; 	LD	A,(fontset)		; Save in the current values
-; 	LD	(HL),A
-; 	LDIR
-	RET
 
 ;***	ANSI SET GRAPHICS RENDITION
 ;

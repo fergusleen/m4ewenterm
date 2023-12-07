@@ -88,6 +88,9 @@ SW1
 	EX	HL,DE
 	LD	HL,(CursorPosition)
 	PUSH	HL			; Save cursor position for later
+	
+	; Write Character to Cursor Position.
+
 	CALL	FindCursor		; Now HL = screen memory address
 					;     DE = character data address
 	LD	B,8			; Value to add between lines(high only)
@@ -143,6 +146,7 @@ SW1
 	LD	A,(DE)			; 8
 	LD	(HL),A
 	call romen
+
 	POP	HL			; Restore cursor position
 	LD	A,H
 	CP	79			; Are we at the right edge?
@@ -248,11 +252,6 @@ SWLF1					; Now the hard bit
 	
 	LD	(ScreenOffset),HL
 	CALL	SCR_SET_OFFSET		; Tell the hardware about it
-
-
-	;  LD	A,(JScrnBuf)		; Is the buffer on?
-	;  LD	(SW_LF_JBuf),A
-	;  CALL	SW_LF_JBuf  ;  FL this is causing issues **!*
 
 	LD	B,255			; Scroll upwards
 	XOR	A			; Fill with 0's. FL- This is the paper.

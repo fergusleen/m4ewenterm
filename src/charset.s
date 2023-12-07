@@ -1,6 +1,8 @@
 
 PRINT "CHARACTER SET"
 
+; This is https://en.wikipedia.org/wiki/Code_page_437
+
 org #6800
 nolist
 

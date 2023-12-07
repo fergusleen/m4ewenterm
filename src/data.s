@@ -11,22 +11,6 @@ PRINT "DATA AND MISC ROUTINES"
 ;
 ;----------------------------------------
 
-term_program
-	db	"Ewen-Term    ",0
-
-signon_message
-	db	"Ver 22b    Written by Ewen McNeill (4/4/1991)"
-	db	13,10,10,0
-
-signoff_terminal
-	db	13,10
-	db	"Ewen-Term Exited"
-	db	13,10,0
-
-abandon_terminal
-	db	13,10
-	db	"Ewen-Term failed to find AMSTRAD RS232C RSX's : *ABANDONED*"
-	db	7,7,7,13,10,0
 
 ESC_key	ds	1		; 1 db to store current ESC setting
 COPY_key	ds	1		; 1 db to store current COPY setting
@@ -233,5 +217,3 @@ TablesLength	EQU	LastAddress - Bottom
 ;	PRINT	"Address Buffer",{hex}AddressBuffer
 	PRINT	"Out Buffer ",{hex}OutBuffer
 	PRINT   "In Buffer  ",{hex}Buffer
-
-SAVE 'EWENM4.BIN',#7000,$-#7000,AMSDOS

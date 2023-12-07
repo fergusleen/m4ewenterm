@@ -1,3 +1,5 @@
+            ; Code for Domain / IP entry and DNS lookup
+
 			; ask for server / ip
 loop_ip:
 
