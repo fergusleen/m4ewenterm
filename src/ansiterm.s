@@ -134,7 +134,6 @@ AnsiFirst
 	LD	A,#C9
 	LD	(JAnsi),A		; Turn itself off now
 	XOR	A			; and turn the screen back on
-	;LD	(JScrnBuf),A
 	LD	(JScreenWrite),A
 	JP	AnsiExit		; = and > don't have anything to follow
 					; them but are legal  

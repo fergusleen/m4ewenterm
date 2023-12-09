@@ -215,8 +215,12 @@ not_delkey:
 			jr		z, terminate
 			cp		0xFC
 			ret		z
-			cp		32
-			jr		c, inputloop
+			cp 32              ; Check if the pressed key is space
+			ret z
+			; ;jr nz, not_space   ; Jump if not space ; leave the out for now, likely to need something at the top of the screen.
+			; call togglePrintTelCmd
+			; ret
+not_space:
 			cp		0x7e
 			jr		nc, inputloop
 			ld		(hl),a
@@ -237,7 +241,25 @@ not_delkey:
 terminate:	ld		(hl),0
 			ret
 
-			
+
+togglePrintTelCmd:
+    ld a, (printTelCmdFlag)
+    xor 1              ; Toggle the flag
+    ld (printTelCmdFlag), a
+    call printToggleMsg
+    ret
+
+printToggleMsg:
+    push hl          ; Save the current value of HL
+    ld a, (printTelCmdFlag)
+    ld hl, msgPrintTelOff
+    jr z, skipToggleMsgOn
+    ld hl, msgPrintTelOn
+skipToggleMsgOn:
+    call disptextz
+    pop hl           ; Restore the original value of HL
+    ret
+
 			;
 			; Get input text line, accept only neric and .
 			;

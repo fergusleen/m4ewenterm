@@ -256,7 +256,8 @@ not_dispend:
 
 			; display text zero terminated
 			; HL = text
-disptextz:	ld 		a,(hl)
+disptextz:	
+			ld 		a,(hl)
 			or		a
 			ret		z
 			call	PRINTCHAR

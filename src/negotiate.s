@@ -1,6 +1,6 @@
             ; Negotiation code for telnet
             ; 
-            ; Terminal type in progress! 6/12/2023 FL
+            ; Terminal type in progress. 6/12/2023 FL
 
 			; call when CMD (0xFF) detected, read next two bytes of command
 			; IY = socket structure ptr
@@ -9,7 +9,7 @@ negotiate:
 			ld		bc,2
 			call	recv
 			;just dispose of these two bytes and ignore for now -FL ; What if telnet command longer?
- 
+            ;ret
 			cp		0xFF
 			jp		z, exit_close	
 			cp		3
@@ -23,9 +23,9 @@ negotiate:
 			jr		z,negotiate	; keep looping, want a reply. Could do other stuff here!
 			
 
-
+; check here for IAC a second time, this means some type of subnegotiation
 check_negotiate:	
-           ; call printTelCmd ; uncomment for negotation info
+            call printTelCmd ; uncomment for negotation info
 			ld		a,(iy+6)
 			cp		0xFD	; DO
 			jr		nz, will_not
@@ -44,9 +44,9 @@ check_negotiate:
 			inc		hl
 			ld		(hl),0
 			inc		hl
-			ld		(hl),0xFF		; CMD
+			ld		(hl),IAC		; CMD
 			inc		hl
-			ld		(hl),0xFA		; SB sub negotiation
+			ld		(hl),SB		; SB sub negotiation
 			inc		hl
 			ld		(hl),CMD_NAWS
 			inc		hl
@@ -58,9 +58,9 @@ check_negotiate:
 			inc		hl
 			ld		(hl),24
 			inc		hl
-			ld		(hl),255
+			ld		(hl),IAC
 			inc		hl
-			ld		(hl),240		; End of subnegotiation parameters.
+			ld		(hl),SE		; End of subnegotiation parameters.
 
 _wait_send:	ld		a,(ix)
 			cp		2			; send in progress?
@@ -77,13 +77,15 @@ _wait_send:	ld		a,(ix)
 will_not:
 			
 			ld		a,(iy+6)
-			cp		0xFD			; DO
+            cp      SB          ; Subneg will be a number of bytes up to IAC SE
+            ret     z
+			cp		DO			; DO
 			jr		nz, not_do
 			ld		a,WONT			; WONT
 			jr		next_telcmd
 not_do:		cp		WILL			; WILL
 			jr		nz, next_telcmd
-			ld		a,0xFD			; DO
+			ld		a,DO			; DO
 
 next_telcmd:
 
@@ -120,11 +122,11 @@ check_terminal_type:
             call send_tel_cmd
 
             ; Prepare to assemble a new packet
-            ld		a,14
+            ld		a,16
 			ld		(cmdsend),a
 			ld		hl,sendsize
             ; Set the packet size
-            ld (hl), 9           ; Correct packet size (excluding size bytes)
+            ld (hl), 10           ; Correct packet size (excluding size bytes)
             inc hl
             ld (hl), 0
             inc hl
@@ -140,14 +142,15 @@ check_terminal_type:
             inc hl
 
             ; Write "ANSI" string
-            ld (hl), 'A'         ; ASCII for 'A'
+            ld (hl), 'a'         ; ASCII for 'A'
             inc hl
-            ld (hl), 'N'         ; ASCII for 'N'
+            ld (hl), 'n'         ; ASCII for 'N'
             inc hl
-            ld (hl), 'S'         ; ASCII for 'S'
+            ld (hl), 's'         ; ASCII for 'S'
             inc hl
-            ld (hl), 'I'         ; ASCII for 'I'
+            ld (hl), 'i'         ; ASCII for 'I'
             inc hl
+
 
             ; End the subnegotiation
             ld (hl), IAC         ; Interpret as Command
@@ -177,7 +180,10 @@ send_tel_cmd:
 			call	sendcmd
             ret
 
-printTelCmd
+printTelCmd:
+    ld a, (printTelCmdFlag)
+    or a              ; Check if the flag is zero
+    ret z             ; Return if flag is off
 	; Load the Telnet command byte
     ld hl, RECV_STRING
     call disptextz
@@ -245,49 +251,6 @@ cmdtoascii:
     ret
 
 
-; Routine to Send ANSI Terminal Type
-send_ansi_terminal_type:
-    ld a, (cmdsend)      ; Load the cmdsend address into A
-    ld hl, sendsize      ; Load the address of sendsize into HL
-    ld (hl), 6           ; Set the packet size (excluding size bytes)
-    inc hl
-    ld (hl), 0
-    inc hl
-    ld (hl), IAC         ; Start of Telnet command
-    inc hl
-    ld (hl), SB          ; Subnegotiation Begin
-    inc hl
-    ld (hl), CMD_TERMINAL_TYPE  ; Terminal Type Option
-    inc hl
-    ld (hl), 0           ; IS command
-    inc hl
-
-    ; Copy the "ANSI" string to the packet
-    ld de, sendtext      ; DE points to where the text should be copied
-    ld hl, ANSI_STRING   ; HL points to the source of the ANSI string
-    call strcpy          ; Call string copy routine
-
-    ; Add Telnet Subnegotiation End
-    ld hl, sendtext + 4  ; Assuming "ANSI" is 4 characters
-    ld (hl), IAC         ; Interpret as Command
-    inc hl
-    ld (hl), SE          ; Subnegotiation End
-
-    ; Send the command
-    ld hl, cmdsend
-    call sendcmd
-
-    ret
-
-; String copy routine
-strcpy:
-    ld a, (hl)
-    or a                 ; Check if zero (end of string)
-    ret z                ; Return if end of string
-    ld (de), a           ; Copy byte
-    inc hl
-    inc de
-    jr strcpy            ; Repeat for next byte
 
     ; Strings representing commands
 do_string:    db 'DO ', 0
@@ -297,8 +260,11 @@ ECHO_STRING: db ' ECHO ',0
 TT_STRING: db ' TERMINAL_TYPE ',0
 RECV_STRING: db 'RECV ',0
 
-; Terminal Type String for "ANSI"
-ANSI_STRING db 'VT-102',0
+    ; This is the Telnet negotiation options debug display flag.
+printTelCmdFlag:  db 0   ; 0 = off, 1 = on
+msgPrintTelOn:    db "NEGOTIATION DEBUG ON", 13,10,0
+msgPrintTelOff:   db "NEGOTIATION DEBUG OFF",13,10 0
+
 
 ; telnet negotiation codes
 DO 				equ 0xfd
