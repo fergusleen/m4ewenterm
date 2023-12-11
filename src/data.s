@@ -80,12 +80,7 @@ CursorCount	db	0	; 1/50ths of a second since last change
 
 FastBlock	ds	2		; Buffering blocks
 TickBlock	ds	7
-DataAreaHere
-DPrintChar	db	%00001001
-DKeyboard	db	%00000001
-DRemoteTabExpand
-		db	#C9
-;Char255	dw	0		; ** direct screen writes now **
+
 backcolour	db	0
 forecolour	db	7
 namelength	db	0		; For Capture file

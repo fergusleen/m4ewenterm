@@ -35,7 +35,6 @@ term
 	CALL	KM_SET_TRANSLATE
 
 	CALL	AllOff
-	LD	IY,DataAreaHere		; Data area of program
 
 	LD	A,12			; Clear screen, and buffer
 	CALL	ToScreen

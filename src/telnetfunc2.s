@@ -539,3 +539,5 @@ isEscapeCode:	db	0
 EscapeCount:	db	0
 EscapeBuf:		ds	255
 buf:			ds	255	
+defaulturl:		db "sdf.org",0
+defaulturllength db 8

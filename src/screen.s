@@ -234,6 +234,7 @@ SW_LFn	INC	L			; Next line
 					; things with it!
 	CP	screen_depth		; Have we gone past the end?
 	JR	Z,SWLF1			; Must scroll
+	ld h,0
 	LD	(CursorPosition),HL	; Save new position
 	RET
 
@@ -272,6 +273,8 @@ SW_LF_Across
 SW_FF					; Clear the screen
 	LD	HL,0
 	LD	(CursorPosition),HL	; Home the cursor
+	LD	(ScreenOffset),HL
+	CALL	SCR_SET_OFFSET		; Tell the hardware about it
 
 	LD	A,(JSW_FF)
 	OR	A

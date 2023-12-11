@@ -46,7 +46,7 @@ AnsiFound
 	LD	A,#C9
 	LD	(JAnsi),A	; Turn itself off now
 	XOR	A		; zero end of sequence marker
-	;LD	(JScrnBuf),A
+
 	LD	(JScreenWrite),A
 
 	LD	HL,(NumberPos)	; Get value of number buffer
@@ -89,8 +89,8 @@ WHATISIT
 	JP	Z,HVP		; Locate
 	CP	"J"
 	JP	Z,ED		; Clear screen
-	; CP	"c"
-	; JP	Z,ED3		; RIS - fl Clear screen
+	CP	"c"
+	JP	Z,ED3		; RIS - fl Clear screen
 	CP	"m"
 	JP	Z,SGR		; Set graphics renditon
 	CP	"K"
@@ -127,8 +127,8 @@ AnsiFirst
 	JP	Z,AnsiMore		; and are legal
 	CP	"["
 	JP	Z,AnsiMore
-	; CP	"c"
-	; JP	Z,AnsiFound		; Clear screen (RIS - FL)
+	CP	"c"
+	JP	Z,AnsiFound		; Clear screen (RIS - FL)
 	CP	#9B			; CSI
 	JP	Z,AnsiF1		; Pretend that "[" was first ;-)
 	LD	A,#C9

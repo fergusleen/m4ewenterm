@@ -262,8 +262,8 @@ RECV_STRING: db 'RECV ',0
 
     ; This is the Telnet negotiation options debug display flag.
 printTelCmdFlag:  db 0   ; 0 = off, 1 = on
-msgPrintTelOn:    db "NEGOTIATION DEBUG ON", 13,10,0
-msgPrintTelOff:   db "NEGOTIATION DEBUG OFF",13,10 0
+msgPrintTelOn:    db "                              NEGOTIATION DEBUG ON                             ",0
+msgPrintTelOff:   db "                              NEGOTIATION DEBUG OFF                            ", 0
 
 
 ; telnet negotiation codes

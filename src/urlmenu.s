@@ -6,6 +6,8 @@ loop_ip:
             call drawline
 			ld		hl,msgserverip
 			call	disptextz
+			; ld		hl, defaulturl
+			; call    disptextz
 			call	get_server
 			cp		0
 			jr		nz, loop_ip
@@ -179,9 +181,40 @@ wait_lookup:
 			; hl = dest buf
 			; return
 			; bc = out size
-get_textinput:		
+
+
+; Attempts to add a default string - not working yet... nearly there.
+; get_textinput:  
+;     ; Initialize BC with the length of the default string
+;     ld bc, 8 ; You need to define defaultStringLength
+
+;     ; Copy default string to buffer
+;     ld de, hl                  ; DE is the destination for the string
+;     ld hl, defaulturl       ; HL points to the default string
+;     ld a, b                    ; Load the B part of BC into A
+;     or c                       ; OR with the C part of BC
+;     jr z, skipStringCopy       ; Jump if the result is zero (BC was zero)
+
+
+; copyLoop:
+;     ld a, (hl)                 ; Load byte from string
+;     ld (de), a                 ; Store byte in buffer
+;     inc hl
+;     inc de
+;     dec bc                     ; Decrement counter
+;     ld a, b                    ; Check if BC is zero
+;     or c
+;     jr nz, copyLoop            ; Continue loop if not zero
+
+; skipStringCopy:
+;     ; Reset HL to start of buffer (as it now points to the end of the string)
+;     ;ld hl, buf             ; Reset HL to the start of the buffer
+; 	push de
+; 	pop hl
+; 	ld bc,8
+
+get_textinput:      
 			ld	bc,0
-			;call	txt_cur_on	
 inputloop:
 			
 re:			call	mc_wait_flyback
@@ -195,20 +228,8 @@ re:			call	mc_wait_flyback
 			cp		0
 			jr		z, inputloop
 
-			; push	hl
-			; push	bc
-			; ;call	txt_get_cursor
-			; dec		h
-			; push	hl
-			; ;call	txt_set_cursor
-			; ;ld		a,32
-			; call	printchar
-			; pop		hl
-			; ;call	txt_set_cursor
-			; pop		bc
-			; pop		hl
-			 dec		hl
-			 dec		bc
+			dec		hl
+			dec		bc
 			jr		inputloop
 not_delkey:	
 			cp		13
@@ -216,10 +237,11 @@ not_delkey:
 			cp		0xFC
 			ret		z
 			cp 32              ; Check if the pressed key is space
-			ret z
-			; ;jr nz, not_space   ; Jump if not space ; leave the out for now, likely to need something at the top of the screen.
-			; call togglePrintTelCmd
-			; ret
+			jp z, inputloop
+			; removed for now. - Bug sometimes setting top line cursor permanantely to 0,40 ish.
+			;jr nz, not_space   ; Jump if not space 
+			;call togglePrintTelCmd
+			; jp inputloop
 not_space:
 			cp		0x7e
 			jr		nc, inputloop
@@ -229,12 +251,6 @@ not_space:
 			push	hl
 			push	bc
 			call	printchar
-			;call	txt_get_cursor
-			;push	hl
-			;ld		a,32
-			;call	printchar
-			;pop	hl
-			;call	txt_set_cursor
 			pop		bc
 			pop		hl
 			jp		inputloop
@@ -251,12 +267,38 @@ togglePrintTelCmd:
 
 printToggleMsg:
     push hl          ; Save the current value of HL
+    push de          ; Save DE register
+    push bc          ; Save BC register (if used in your text printing routine)
+
+    ; Save current cursor position
+    ld hl, CursorPosition
+    ld e, (hl)       ; Save low byte of cursor position
+    inc hl
+    ld d, (hl)       ; Save high byte of cursor position
+
+    ; Set cursor to halfway across line 25
+    ; Assuming screen width of 80, column 40 is halfway
+    ld hl, CursorPosition
+    ld (hl), 23      ;
+	inc hl
+    ld (hl), 0      ;
+
+    ; Print the message
     ld a, (printTelCmdFlag)
     ld hl, msgPrintTelOff
     jr z, skipToggleMsgOn
     ld hl, msgPrintTelOn
 skipToggleMsgOn:
     call disptextz
+
+    ; Restore original cursor position
+    ld hl, CursorPosition
+    ld (hl), e       ; Restore low byte of cursor position
+    inc hl
+    ld (hl), d       ; Restore high byte of cursor position
+
+    pop bc           ; Restore BC register
+    pop de           ; Restore DE register
     pop hl           ; Restore the original value of HL
     ret
 
