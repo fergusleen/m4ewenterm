@@ -40,7 +40,7 @@ Few places to start with.
 - amstrad.simulant.uk:464
 - ciaamigabbs.dynu.net:6400
 - godwars.net:2250
-- horizons.jpl.nasa.gov:6775 (use command `tty 24,80` to set screen)
+- horizons.jpl.nasa.gov:6775
 - sdf.org
 
 
