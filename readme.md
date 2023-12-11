@@ -9,9 +9,12 @@ Based on Ewenterm (https://ewen.mcneill.gen.nz/programs/cpc/ewenterm/) 1991
 and Duke's M4 telnet Example (https://github.com/M4Duke/M4examples/blob/master/telnet.s) 2018
 
 - Assembles with RASM (www.roudoudou.com/rasm)
-- Tested with CPCEMU (https://www.cpc-emu.org/) and a 464, a 664 and a 6128.
+- Tested with CPCEMU (https://www.cpc-emu.org/).
 - Also tested by the good people on cpcwiki.
 - M4 board information here: (https://www.spinpoint.org/2019/11/19/m4-board-guides/)
+- CPCWIKI Thread here: (https://www.cpcwiki.eu/forum/amstrad-cpc-hardware/ansi-telnet-for-the-m4-board/)
+
+A version for the USIFAC 2 is also available on ikonsgr's Dropbox (Connect to BBS.zip) https://www.dropbox.com/sh/ezzga2dppm6jlm7/AACwFC_rv2QatWh_ndKc9fhma?dl=0
 
 
 ## Usage
@@ -26,11 +29,9 @@ run"ewen
 
 From here type in a domain:port or ip:port.
 
-All keypresses will go to the remote host, but for SHIFT-TAB (Pause) and SHIFT-ESC (Disconnect)
+All keypresses will go to the remote host, but for SHIFT-TAB (Pause) and SHIFT-ESC (Disconnect). 
 
-For places to telnet to visit: https://www.telnetbbsguide.com/ and https://www.mudconnect.com/cgi-bin/search.cgi?mode=mobile_biglist
-
-This is naturally a very restricted telnet client, but that is part of its appeal!
+This is naturally a very restricted telnet client, but that is part of its appeal.
 
 Few places to start with.
 
@@ -40,17 +41,17 @@ Few places to start with.
 - ciaamigabbs.dynu.net:6400
 - godwars.net:2250
 - horizons.jpl.nasa.gov:6775 (use command `tty 24,80` to set screen)
+- sdf.org
 
 
 ### todo/ideas:
-- Fix exit code. not nice right now.
-- Telnet negotation non-existent.
-- Allow the |TERM RSX to accept a domain/IP. Then build a BASIC menu of known working servers. or do this in assembly.
+- Telnet negotation could be expanded. A  SHOW OPTIONS function, which lists telnet functions as they arrive is in the code but has been commented out as it can cause some display issues.
+- Allow the |TERM RSX to accept a domain/IP. Then build a BASIC menu of known working servers. Some work in the code to display a default URL. Not stable yet.
     - Or pull a webpage with up to date servers?
-- Add a few more ANSI Control codes. Be nice to find a test server of some kind.
-- Maybe do something to show colour? I think Honeyview used mode 1 for more colours and halved the character width.
+- Add a few more ANSI Control codes. Could do animation?
+- Maybe do something to show colour? I think it's possible to use mode 1 for more colours and half the character width.
 
 
-**Fergus Leen November 2023**
+**F Leen November 2023**
 
 
