@@ -52,7 +52,7 @@ Few places to start with.
 - Maybe do something to show colour? I think it's possible to use mode 1 for more colours and half the character width.
 
  
-If this is useful to you, please consider buying me a coffee! It's pretty good encouragement to do more.
+If this is useful to you, please consider buying me a coffee. Coffee motivates :)
 
 <a href="https://www.buymeacoffee.com/fleen" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png" alt="Buy Me A Coffee"></a>
 
