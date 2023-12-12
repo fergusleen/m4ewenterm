@@ -52,8 +52,10 @@ Few places to start with.
 - Maybe do something to show colour? I think it's possible to use mode 1 for more colours and half the character width.
 
  
-If this is useful to you, please consider buying me a coffee! It's pretty good encouragement to add more.
-<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="fleen" data-color="#FFDD00" data-emoji="" data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
+If this is useful to you, please consider buying me a coffee! It's pretty good encouragement to do more.
+
+<a href="https://www.buymeacoffee.com/fleen" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png" alt="Buy Me A Coffee"></a>
+
 
 **F Leen November 2023**
 
