@@ -45,9 +45,9 @@ Few places to start with.
 
 
 ### todo/ideas:
-- Telnet negotation could be expanded. A  SHOW OPTIONS function, which lists telnet functions as they arrive is in the code but has been commented out as it can cause some display issues.
-- Allow the |TERM RSX to accept a domain/IP. Then build a BASIC menu of known working servers. Some work in the code to display a default URL. Not stable yet.
-    - Or pull a webpage with up to date servers?
+- Telnet negotation could be expanded. A  SHOW OPTIONS function, which prints telnet commands as they arrive, is in the code but has been commented out as it can cause some display issues.
+- Allow the |TERM RSX to accept a domain/IP. Then build a BASIC menu of known working servers. There is commented out code to display a default URL.  Not stable yet.
+    - Pull a webpage with up to date servers?
 - Add a few more ANSI Control codes. Could do animation?
 - Maybe do something to show colour? I think it's possible to use mode 1 for more colours and half the character width.
 
