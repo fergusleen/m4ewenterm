@@ -1,5 +1,5 @@
 
-#  M4EWEN/ EWENM4
+#  M4EWEN
 
 ## An ANSI Telnet client for the Amstrad CPC with M4 Board
 
