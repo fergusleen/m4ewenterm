@@ -4,11 +4,42 @@
 loop_ip:
 
             call drawline
+			ld		hl,msgservermenu
+			call	disptextz
+			call	KM_WAIT_CHAR
+			call	printchar
+			push	af
+			call	crlf
+			pop		af
+			cp		"1"
+			jr		z,server_amstrad
+			cp		"2"
+			jr		z,server_sdf
+			cp		"3"
+			jr		z,server_telehack
+			and		0xDF
+			cp		"M"
+			jr		nz,loop_ip
 			ld		hl,msgserverip
 			call	disptextz
-			; ld		hl, defaulturl
-			; call    disptextz
 			call	get_server
+			jr		server_selected
+
+server_amstrad:
+			ld		hl,preset_amstrad
+			call	set_server
+			jr		server_selected
+
+server_sdf:
+			ld		hl,preset_sdf
+			call	set_server
+			jr		server_selected
+
+server_telehack:
+			ld		hl,preset_telehack
+			call	set_server
+
+server_selected:
 			cp		0
 			jr		nz, loop_ip
 			
@@ -28,6 +59,25 @@ loop_ip:
 			jp		loop_ip
 			
 
+; Copy a zero-terminated preset from HL into the normal input buffer, then
+; resolve it through the same parser used for manually entered addresses.
+set_server:
+			ld		de,buf
+			ld		c,0
+set_server_copy:
+			ld		a,(hl)
+			or		a
+			jr		z,set_server_ready
+			ld		(de),a
+			inc		hl
+			inc		de
+			inc		c
+			jr		set_server_copy
+set_server_ready:
+			xor		a
+			ld		(de),a
+			jr		parse_server
+			
 
 print_lownib:			
 			and		0xF			; keep lower nibble
@@ -44,6 +94,7 @@ get_server:
 			cp		c
 			jr		z, get_server
 		
+parse_server:
 			; check if any none neric chars
 			
 			ld		b,c
@@ -147,6 +198,19 @@ got_port:
 			ld		(port),hl
 			xor		a
 			ret
+
+
+msgservermenu:
+			db		13,10,"M4TERM destinations",13,10,13,10
+			db		"1  amstrad.simulant.uk:464",13,10
+			db		"2  sdf.org",13,10
+			db		"3  telehack.com",13,10
+			db		"M  Manual address",13,10,13,10
+			db		"Select: ",0
+
+preset_amstrad:	db		"amstrad.simulant.uk:464",0
+preset_sdf:		db		"sdf.org",0
+preset_telehack:	db		"telehack.com",0
 
 			
 dnslookup:	

@@ -495,8 +495,8 @@ msgport:		db  " port ",0
 msgresolve:		db	10,13, "Resolving: ",0
 msgfail:		db 	", failed!", 10, 13, 0
 msgtitle:		db	"CPC telnet client v101 beta  Duke 2018",10,13,0
-msgtest:        db "EwenM4 2023 v1.0 - Based on Ewenterm (1991) and M4 telnet (2018)",10,13,0
-msgtitle2:		db  "================================================================",10,13,0
+msgtest:        db  "M4Term 2023 v1.0 - Based on Ewenterm (1991) and M4 telnet (2018)",10,13,0
+msgtitle2:		db  "=======================kolleykibber 2023========================",10,13,0
 msguserabort:	db	10,13,"User aborted (ESC)", 10, 13,0
 cmdsocket:		db	5
 				dw	C_NETSOCKET
