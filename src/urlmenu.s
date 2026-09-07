@@ -17,6 +17,8 @@ loop_ip:
 			jr		z,server_sdf
 			cp		"3"
 			jr		z,server_telehack
+			cp		"4"
+			jr		z,server_solvalou
 			and		0xDF
 			cp		"M"
 			jr		nz,loop_ip
@@ -37,6 +39,11 @@ server_sdf:
 
 server_telehack:
 			ld		hl,preset_telehack
+			call	set_server
+			jr		server_selected
+
+server_solvalou:
+			ld		hl,preset_solvalou
 			call	set_server
 
 server_selected:
@@ -205,12 +212,14 @@ msgservermenu:
 			db		"1  amstrad.simulant.uk:464",13,10
 			db		"2  sdf.org",13,10
 			db		"3  telehack.com",13,10
+			db		"4  solvalou.com:32323",13,10
 			db		"M  Manual address",13,10,13,10
 			db		"Select: ",0
 
 preset_amstrad:	db		"amstrad.simulant.uk:464",0
 preset_sdf:		db		"sdf.org",0
 preset_telehack:	db		"telehack.com",0
+preset_solvalou:	db		"solvalou.com:32323",0
 
 			
 dnslookup:	
