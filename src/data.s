@@ -62,17 +62,29 @@ ScreenOffset	dw	0		; Offset from #C000 to start of screen
 
 Romstate	db	0
 
-HaveLoaded	db	0	; To show that a value has been put in
-				; for Ansi emualtor
-
-AnsiWasFirst	db	0	; Holds first character of Ansi sequence
-
-NumberBuffer
-	ds	20		; Buffer for numbers in Ansi
-
-NumberPos	dw	NumberBuffer	; Address within buffer
-
-CharacterNo	db	0	; db within Ansi sequence 0=first,255=other
+AnsiState       db 0
+AnsiPrivate     db 0
+AnsiParamCount  db 0
+WrapPending     db 0
+AutoWrap        db 1
+ScrollTop       db 0
+ScrollBottom    db screen_depth-1
+OriginMode      db 0
+CursorKeyMode   db 0
+ScrollRow       db 0
+DecSavedValid   db 0
+DecSavedCursor  dw 0
+DecSavedOrigin  db 0
+DecSavedWrap    db 1
+DecSavedPending db 0
+DecSavedAttrs   ds 9
+G0Charset       db 0
+G1Charset       db 0
+ActiveCharset   db 0
+CharsetTarget   db 255
+DecSavedSets    ds 3
+NumberBuffer    ds 20
+NumberPos       dw NumberBuffer
 
 CursorBlock	ds	9	; Block for cursor event
 
@@ -112,7 +124,7 @@ LocalTrans
 	DB	#40,#41,#42,#43,#44,#45,#46,#47,#48,#49,#4A,#4B,#4C,#4D,#4E,#4F
 	DB	#50,#51,#52,#53,#54,#55,#56,#57,#58,#59,#5A,#5B,#5C,#5D,#5E,#5F
 	DB	#60,#61,#62,#63,#64,#65,#66,#67,#68,#69,#6A,#6B,#6C,#6D,#6E,#6F
-	DB	#70,#71,#72,#73,#74,#75,#76,#77,#78,#79,#7A,#7B,#7C,#7D,#7E,#08
+	DB	#70,#71,#72,#73,#74,#75,#76,#77,#78,#79,#7A,#7B,#7C,#7D,#7E,#7F
 	DB	#80,#81,#82,#83,#84,#85,#86,#87,#88,#89,#8A,#8B,#8C,#8D,#8E,#8F
 	DB	#90,#91,#92,#93,#94,#95,#96,#97,#98,#99,#9A,#9B,#9C,#9D,#9E,#9F
 	DB	#A0,#A1,#A2,#A3,#A4,#A5,#A6,#A7,#A8,#A9,#AA,#AB,#AC,#AD,#AE,#AF

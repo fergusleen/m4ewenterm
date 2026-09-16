@@ -13,9 +13,7 @@ print	"SCREEN EMULATION"
 ;
 ;------------------------------------
 ToScreen:
-	CALL	JScreenWrite	; THE screen, and buffer
-	CALL	JAnsi			; Ansi emulator (not on when screen is)
-	RET
+    jp Ansi
 
 ;------------------------------------
 ;
@@ -52,29 +50,34 @@ ScreenWrite
 	
 	LD	A,D			; Restore value of A
 
-	CP	31			; Is it a control character?
-	JP	NC,SW1
-	CP	7			; Is it a control character used?
-	JP	Z,SW_Bell
-	CP	8
-	JP	Z,SW_BS
-	CP	9
-	JP	Z,SW_TAB
-	CP	10
-	JP	Z,SW_LF
-	CP	12
-	JP	Z,SW_FF
-	CP	13
-	JP	Z,SW_CR
-	CP	27			; Is it the ESC character, starting
-					; an ANSI sequence?
-	JP	Z,SW_Ansi
-					; If so, make the screen act on it
-					; otherwise print it out
-	CP	#9B
-	JP	Z,SW_Ansi		; Also, an Ansi switch on  
-					; Ansi handler does the rest
-SW1	
+    cp 32
+    jr nc,SW1
+    cp 7
+    jp z,SW_Bell
+    cp 8
+    jp z,SW_BS
+    cp 9
+    jp z,SW_TAB
+    cp 10
+    jp z,SW_LF
+    cp 11
+    jp z,SW_LF
+    cp 12
+    jp z,SW_LF
+    cp 13
+    jp z,SW_CR
+    jp SWR_None
+SW1
+    push af
+    ld a,(WrapPending)
+    or a
+    jr z,SW_NoWrap
+    call CancelWrap
+    ld hl,(CursorPosition)
+    ld h,0
+    call SW_LFn
+SW_NoWrap
+    pop af
 	LD	HL,Character		; Character buffer address
 	CALL	Getcharacter
 	CALL	JItalics		; Set the character matrix up
@@ -147,20 +150,13 @@ SW1
 	LD	(HL),A
 	call romen
 
-	POP	HL			; Restore cursor position
-	LD	A,H
-	CP	79			; Are we at the right edge?
-	JR	NZ,SW1_5		; If yes
-	LD	H,0			; Column zero now
-	
-	
-	CALL	SW_LFn			; Move down the line (don't load)
-
-	LD	A,#C9
-	LD	(JSW_LF),A		; Turn off line feed for next
-					; character
-	JP	SWR_None		; _don't_ re-enable LF and there
-					; is no need to re-enable FF either
+    pop hl
+    ld a,h
+    cp 79
+    jr nz,SW1_5
+    ld a,(AutoWrap)
+    ld (WrapPending),a
+    jp SW_Restore
 
 SW1_5	INC	H			; One more across
 	LD	(CursorPosition),HL
@@ -201,6 +197,7 @@ SW_Bell				; Sound the bell
 	JP	SWR_None		; And that was it!
 
 SW_BS
+    call CancelWrap
 	LD	A,(CursorPosition+1)	; A = column
 	OR	A			; Is zero?
 	JP	Z,SWR_None		; Don't wrap back
@@ -209,66 +206,56 @@ SW_BS
 	JP	SWR_None		; That's it folks!
 
 SW_TAB
-	LD	A,(CursorPosition+1)	; A = column
-	AND	%11111000		; Mult of 8
-	CP	72			; If at 72, then we CR/LF not TAB!!
-	JR	NZ,SW_Tab1
-	XOR	A
-	LD	(CursorPosition+1),A	; Do the CR
-	JP	SW_LF_All		; _must_ do it, so no messing with
-					; jumpblocks
-SW_Tab1	
-	ADD	A,8			; Next stop
-	LD	(CursorPosition+1),A	; And save
-	JP	SWR_None		; And that was that!
-	
-SW_LF	LD	A,(JSW_LF)
-	OR	A
-	CALL	Z,SW_LF_All
-	JP	SWR_LF			; We have just avoided it, or done it
-					; either way allow it now
+    call CancelWrap
+    ld a,(CursorPosition+1)
+    and %11111000
+    add a,8
+    cp 80
+    jr c,SW_TabColumn
+    ld a,79
+SW_TabColumn
+    ld (CursorPosition+1),a
+    jp SWR_None
+
+SW_LF
+    call CancelWrap
+    call SW_LF_All
+    jp SW_Restore
 SW_LF_All
 	LD	HL,(CursorPosition)	; Do we need to scroll?
-SW_LFn	INC	L			; Next line
-	LD	A,L			; Now, put it into A so we can do
-					; things with it!
-	CP	screen_depth		; Have we gone past the end?
-	JR	Z,SWLF1			; Must scroll
-	ld h,0
-	LD	(CursorPosition),HL	; Save new position
-	RET
+SW_LFn
+    ld a,(ScrollBottom)
+    cp l
+    jr z,SWRegionUp
+    ld a,l
+    cp screen_depth-1
+    jr nc,SWIndexStay
+    inc l
+SWIndexStay
+    ld (CursorPosition),hl
+    ret
+SWRegionUp
+    ld (CursorPosition),hl
+    jp ScrollUp
 
-SWLF1					; Now the hard bit
-	DEC	L			; Back to line 24
-	LD	(CursorPosition),HL	; Resave cursor position
-
-;*** Scroll the screen up
-
-	LD	HL,(ScreenOffset)	; Get current offset
-	LD	DE,80			; Offset to add
-	ADD	HL,DE			; Addit!
-	LD	A,H
-	AND	%00000111		; Mask back into range
-	LD	H,A
-	
-	LD	(ScreenOffset),HL
-	CALL	SCR_SET_OFFSET		; Tell the hardware about it
-
-	LD	B,255			; Scroll upwards
-	XOR	A			; Fill with 0's. FL- This is the paper.
-	CALL	SCR_HW_ROLL		; Move the screen up and blank the bottom line
-	CALL SW_LF_Across
-	RET				; That's all here
-
-SW_LF_Across
-	INC	HL			; HL = HL + 1
-	LD	A,H
-	AND	%00000111		; Mask back into range of screen
-	ADD	A,#C0			; Add base of screen address
-	LD	H,A
-	RET
-
-
+ScrollFullUp
+; Advance the CPC display start by one text row. Clear both the new
+; terminal bottom row and the unused 25th physical row (hardware is 25 rows).
+    ld hl,(ScreenOffset)
+    ld de,80
+    add hl,de
+    ld a,h
+    and 7
+    ld h,a
+    ld (ScreenOffset),hl
+    call SCR_SET_OFFSET
+    call romdis
+    ld hl,screen_depth-1
+    call FindCursor
+    ld bc,160
+    call ScreenBlank
+    call romen
+    ret
 
 SW_FF					; Clear the screen
 	LD	HL,0
@@ -331,17 +318,11 @@ SW_FF					; Clear the screen
 
 
 SW_CR
+    call CancelWrap
 	LD	HL,(CursorPosition)	; Get cursor pos
 	LD	H,0			; Zero column
 	LD	(CursorPosition),HL	; Save cursor pos
 	JP	SWR_None		; Say your prayers
-
-SW_Ansi
-	LD	A,#C9
-	LD	(JScreenWrite),A	; Screen display off
-	XOR	A
-	LD	(JAnsi),A		; Ansi display on
-	JP	SWR_None
 
 ;---------------------------------------
 ;
@@ -596,6 +577,8 @@ FindCursor
 ;
 ;------------------------------------
 GetCharacter
+    jp LoadTerminalGlyph
+GetCP437Character
 	PUSH	HL
 	LD	E,A
 	LD	D,HCharSet

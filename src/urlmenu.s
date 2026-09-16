@@ -61,6 +61,8 @@ server_selected:
 			
 			ld		hl,(port)
 			call	disp_port
+            ld hl,msgconnectcancel
+            call disptextz
 			call	crlf
 			call	telnet_session
 			jp		loop_ip

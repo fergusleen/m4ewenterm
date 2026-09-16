@@ -36,8 +36,11 @@ term
 
 	CALL	AllOff
 
-	LD	A,12			; Clear screen, and buffer
-	CALL	ToScreen
+    ; SCR_SET_MODE has cleared the physical display. Reset terminal state.
+    call ResetTerminalModes
+    ld hl,0
+    ld (CursorPosition),hl
+    ld (Cursor_Pos),hl
 
 	LD	HL,0			; No offset, just set mode
 	LD	(ScreenOffset),HL
@@ -74,10 +77,6 @@ PrintChar
 	JP	Z,PCexit
 
 PrintC1
-	CP	9			; Is it TAB?
-	JP	NZ,PC1
-	CALL	JLTabExpand
-	JP	PCexit
 PC1	CALL	ToScreen		; Print the character
 	CP	8			; Is it DEL?
 	CALL	Z,JLDestDel

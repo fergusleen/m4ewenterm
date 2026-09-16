@@ -54,21 +54,41 @@ telnet_session:
 			call	sendcmd
 			ld		a,(iy+3)
 			cp		255
-			jp		z,exit_close
+            jr z,connect_failed
+            call WaitForConnect
+            or a
+            jr z,connect_ok
+connect_failed:
+            call disp_error
+            ld hl,cmdclose
+            call sendcmd
+            ret                  ; Unwind telnet_session back to the menu
+
+; Poll the socket without blocking the keyboard. Only a real keypress counts;
+; KM_READ_CHAR may leave A unchanged when it returns with carry clear.
+WaitForConnect:
 wait_connect:
-			ld		a,(ix)			; get socket status  (0 ==IDLE (OK), 1 == connect in progress, 2 == send in progress)
-			cp		1				; connect in progress?
-			jr		z,wait_connect
-			cp		0
-			jr		z,connect_ok
-			call	disp_error	
-			jp		exit_close
-connect_ok:	ld		hl,msgconnect
+            ld a,(ix)
+            cp 1
+            ret nz
+            call km_read_char
+            jr nc,wait_connect
+            cp 27                ; Normal ESC (terminal mapping)
+            jr z,connect_cancel
+            cp #FC               ; Shift-ESC also cancels
+            jr nz,wait_connect
+connect_cancel:
+            ld a,#FC
+            ret
+
+connect_ok:
+            call ResetTerminalModes
+            call ResetTelnet
+            ld		hl,msgconnect
 			call	disptextz
 
 
-mainloop:	ld		bc,1
-			call	recv_noblock2
+mainloop:	call	recv_noblock2
 			
 			call	km_read_char
 			jr		nc,mainloop
@@ -90,49 +110,69 @@ pause_loop:
 			jr		nz, pause_loop
 			jr		mainloop
 no_pause:
-			
-			ld		hl,sendtext
-			ld		(hl),a
-			
-			
-			
-wait_send:	ld		a,(ix)
-			cp		2			; send in progress?
-			jr		z,wait_send	
-			cp		0
-			call	nz,disp_error	
-			
-			;xor		a
-			;ld		(isEscapeCode),a
-			
-			ld		a,(hl)
-			cp		0xD
-			jr		nz, plain_text
-			inc		hl
-			ld		a,0xA
-			ld		(hl),a
-			
-			ld		a,7
-			ld		(cmdsend),a
-			ld		a,2
-			ld		(sendsize),a
-			ld		hl,cmdsend
-			call	sendcmd
-			
-			jp		mainloop
-plain_text:
-			ld		a,6
-			ld		(cmdsend),a
-			ld		a,1
-			ld		(sendsize),a
-			ld		hl,cmdsend
-			call	sendcmd
-			
-			
-			
-			jp		mainloop
+            call EncodeKey
+wait_send:
+            ld a,(ix)
+            cp 2
+            jr z,wait_send
+            or a
+            jp nz,exit_close
+            ld hl,cmdsend
+            call sendcmd
+            jp mainloop
 
-
+; A = CPC firmware character. Build one complete M4 send packet.
+; Bare cursor keys are F0=up, F1=down, F2=left, F3=right.
+EncodeKey:
+            ld hl,sendtext
+            ld (hl),a
+            ld b,1
+            cp #F0
+            jr c,EncodePlain
+            cp #F4
+            jr nc,EncodePlain
+            sub #F0
+            ld e,a
+            ld d,0
+            ld hl,ArrowFinals
+            add hl,de
+            ld c,(hl)
+            ld hl,sendtext
+            ld (hl),27
+            inc hl
+            ld a,(CursorKeyMode)
+            or a
+            ld a,"["
+            jr z,EncodeArrowPrefix
+            ld a,"O"
+EncodeArrowPrefix:
+            ld (hl),a
+            inc hl
+            ld (hl),c
+            ld b,3
+            jr EncodeLength
+EncodePlain:
+            cp 13
+            jr nz,EncodeIAC
+            inc hl
+            ld (hl),10
+            ld b,2
+            jr EncodeLength
+EncodeIAC:
+            cp 255
+            jr nz,EncodeLength
+            inc hl
+            ld (hl),255       ; Literal IAC must be escaped on Telnet
+            ld b,2
+EncodeLength:
+            ld a,b
+            ld (sendsize),a
+            add a,5
+            ld (cmdsend),a
+            xor a
+            ld (sendsize+1),a
+            ret
+ArrowFinals: db "ABDC"
 
 
 recv_noblock2:
@@ -141,9 +181,8 @@ recv_noblock2:
 			push 	de
 			push 	hl
 			
-			;ld	bc,2048		- to do empty entire receive buffer and use index
-			
-			ld		bc,1
+            ; Bound work per keyboard poll, while amortising M4 command overhead.
+            ld bc,ReceiveBatchSize
 			
 			call 	recv
 			cp		0xFF
@@ -161,29 +200,30 @@ recv_noblock2:
 			pop 	af
 			ret
 
-got_msg2:	
-			; disp received msg
-			push	iy
-			pop		hl
-			ld		de,0x6
-			add		hl,de		; received text pointer
-			ld		a,(hl)
-
-			cp		CMD
-
-            jr		nz,not_tel_cmd 
-			call	negotiate
-			
-			jp		recvdone
-
-
-not_tel_cmd:
-
-
-			ld		b,a
-            call printchar ; Handoff to ewenterm
-
-			jp		recvdone
+got_msg2:
+            ; Sending a Telnet/terminal reply overwrites the M4 response area.
+            ; Save the entire batch before any parser call can send a reply.
+            push iy
+            pop hl
+            ld de,6
+            add hl,de
+            ld de,ReceiveBatch
+            push bc
+            ldir
+            pop bc
+            ld hl,ReceiveBatch
+ReceiveBatchLoop:
+            ld a,(hl)
+            push bc
+            push hl
+            call TelnetByte
+            pop hl
+            pop bc
+            inc hl
+            dec bc
+            ld a,b
+            or c
+            jr nz,ReceiveBatchLoop
 
 recvdone:	
 			
@@ -491,12 +531,13 @@ msgfoundm4:		db	"M4 Board installed",10,13,0
 msgverfail:		db	", you need v1.1.0 or higher.",10,13,0
 msgok:			db  ", OK.",10,13,0
 msgconnecting:	db	10,13, "Connecting to IP ",0
+msgconnectcancel: db " (ESC cancels)",0
 msgport:		db  " port ",0
 msgresolve:		db	10,13, "Resolving: ",0
 msgfail:		db 	", failed!", 10, 13, 0
 msgtitle:		db	"CPC telnet client v101 beta  Duke 2018",10,13,0
-msgtest:        db  "M4Term 2023 v1.0 - Based on Ewenterm (1991) and M4 telnet (2018)",10,13,0
-msgtitle2:		db  "=======================kolleykibber 2023========================",10,13,0
+msgtest:        db  "M4Term v2.0 VT100 2026 ",10,13,0
+msgtitle2:		db  "==========https://github.com/fergusleen/m4ewenterm=========",10,13,0
 msguserabort:	db	10,13,"User aborted (ESC)", 10, 13,0
 cmdsocket:		db	5
 				dw	C_NETSOCKET
@@ -541,3 +582,7 @@ EscapeBuf:		ds	255
 buf:			ds	255	
 defaulturl:		db "sdf.org",0
 defaulturllength db 8
+
+; Private receive storage must remain outside the M4 shared response buffer.
+ReceiveBatchSize equ 64
+ReceiveBatch: ds ReceiveBatchSize

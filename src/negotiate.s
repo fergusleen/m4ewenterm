@@ -1,190 +1,251 @@
-            ; Negotiation code for telnet
-            ; 
-            ; Terminal type in progress. 6/12/2023 FL
+; Streaming Telnet decoder: never reads ahead or waits for another byte.
+; States: data, IAC, option, SB option, SB payload, SB IAC.
+ResetTelnet
+    xor a
+    ld hl,TelnetState
+    ld b,TelnetStateEnd-TelnetState
+ResetTelnetLoop
+    ld (hl),a
+    inc hl
+    djnz ResetTelnetLoop
+    ret
+TelnetByte
+    ld c,a
+    ld a,(TelnetState)
+    or a
+    jr z,TelnetData
+    cp 1
+    jp z,TelnetIAC
+    cp 2
+    jp z,TelnetOptionByte
+    cp 3
+    jr z,TelnetSBOption
+    cp 4
+    jr z,TelnetSBData
+    ; IAC within subnegotiation: escaped IAC or end marker.
+    ld a,c
+    cp SE
+    jp z,TelnetSBEnd
+    cp IAC
+    jr z,TelnetSBQuoted
+    ; Malformed SB: abandon it and interpret the new IAC command.
+    jp TelnetIAC
+TelnetData
+    ld a,c
+    cp IAC
+    jp nz,PrintChar
+    ld a,1
+    ld (TelnetState),a
+    ret
+TelnetIAC
+    xor a
+    ld (TelnetState),a
+    ld a,c
+    cp IAC
+    jp z,PrintChar
+    cp SB
+    jr z,TelnetStartSB
+    cp WILL
+    ret c
+    cp DO+1
+    jr c,TelnetStartOption
+    cp DONT
+    ret nz
+TelnetStartOption
+    ld (TelnetVerb),a
+    ld a,2
+    ld (TelnetState),a
+    ret
+TelnetStartSB
+    ld a,3
+    ld (TelnetState),a
+    ret
+TelnetSBOption
+    ld a,c
+    ld (TelnetSBType),a
+    xor a
+    ld (TelnetSBCount),a
+    ld a,4
+    ld (TelnetState),a
+    ret
+TelnetSBData
+    ld a,c
+    cp IAC
+    jr nz,TelnetSBPayload
+    ld a,5
+    ld (TelnetState),a
+    ret
+TelnetSBQuoted
+    ld a,4
+    ld (TelnetState),a
+TelnetSBPayload
+    ld a,(TelnetSBCount)
+    or a
+    jr nz,TelnetSBMore
+    ld a,c
+    ld (TelnetSBFirst),a
+    xor a
+TelnetSBMore
+    cp 255
+    ret z
+    inc a
+    ld (TelnetSBCount),a
+    ret
+TelnetSBEnd
+    xor a
+    ld (TelnetState),a
+    ld a,(LocalTT)
+    or a
+    ret z
+    ld a,(TelnetSBType)
+    cp CMD_TERMINAL_TYPE
+    ret nz
+    ld a,(TelnetSBCount)
+    cp 1
+    ret nz
+    ld a,(TelnetSBFirst)
+    cp 1                       ; TERMINAL-TYPE SEND
+    ret nz
+    ld hl,TelnetTypeReply
+    ld b,11
+    jp SendBytes
+TelnetOptionByte
+    xor a
+    ld (TelnetState),a
+    ld a,c
+    ld (TelnetOption),a
+    call printTelCmd
+    ld a,(TelnetVerb)
+    cp DO
+    jr z,TelnetDO
+    cp DONT
+    jr z,TelnetDONT
+    cp WILL
+    jr z,TelnetWILL
+    ; WONT: acknowledge only if the peer's option was previously enabled.
+    call FindRemoteOption
+    ret nc
+    ld a,(hl)
+    or a
+    ret z
+    ld (hl),0
+    ld a,DONT
+    jr TelnetReplyOption
+TelnetWILL
+    call FindRemoteOption
+    ld a,DONT
+    jr nc,TelnetReplyOption
+    ld a,(hl)
+    or a
+    ret nz
+    ld (hl),1
+    ld a,DO
+    jr TelnetReplyOption
+TelnetDONT
+    call FindLocalOption
+    ret nc
+    ld a,(hl)
+    or a
+    ret z                     ; Never echo an acknowledgement/refusal
+    ld (hl),0
+    ld a,WONT
+    jr TelnetReplyOption
+TelnetDO
+    call FindLocalOption
+    ld a,WONT
+    jr nc,TelnetReplyOption
+    ld a,(hl)
+    or a
+    ret nz                    ; Duplicate requests must not loop
+    ld (hl),1
+    ld a,WILL
+    call TelnetReplyOption
+    ld a,(TelnetOption)
+    cp CMD_NAWS
+    ret nz
+    ld hl,TelnetWindowReply
+    ld b,9
+    jp SendBytes
+TelnetReplyOption
+    ld (TelnetOptionReply+1),a
+    ld a,(TelnetOption)
+    ld (TelnetOptionReply+2),a
+    ld hl,TelnetOptionReply
+    ld b,3
+    jp SendBytes
+FindLocalOption
+    ld a,(TelnetOption)
+    ld hl,LocalTT
+    cp CMD_TERMINAL_TYPE
+    jr z,TelnetSupported
+    ld hl,LocalNAWS
+    cp CMD_NAWS
+    jr z,TelnetSupported
+    ld hl,LocalSGA
+    cp 3
+    jr z,TelnetSupported
+    or a
+    ret
+FindRemoteOption
+    ld a,(TelnetOption)
+    ld hl,RemoteEcho
+    cp CMD_ECHO
+    jr z,TelnetSupported
+    ld hl,RemoteSGA
+    cp 3
+    jr z,TelnetSupported
+    or a
+    ret
+TelnetSupported
+    scf
+    ret
 
-			; call when CMD (0xFF) detected, read next two bytes of command
-			; IY = socket structure ptr
-negotiate:
-
-			ld		bc,2
-			call	recv
-			;just dispose of these two bytes and ignore for now -FL ; What if telnet command longer?
-            ;ret
-			cp		0xFF
-			jp		z, exit_close	
-			cp		3
-			jp		z, exit_close
-            
-			
-            xor		a
-			cp		c
-			jr		nz, check_negotiate
-			cp		b
-			jr		z,negotiate	; keep looping, want a reply. Could do other stuff here!
-			
-
-; check here for IAC a second time, this means some type of subnegotiation
-check_negotiate:	
-            call printTelCmd ; uncomment for negotation info
-			ld		a,(iy+6)
-			cp		0xFD	; DO
-			jr		nz, will_not
-			ld		a,(iy+7)
-			cp		CMD_NAWS	
-            jr      nz, will_not
-			;jr		nz, check_terminal_type ; return to this
-			; negotiate window size
-            ld      b,CMD_NAWS
-            call send_tel_cmd
-		
-			ld		a,14
-			ld		(cmdsend),a
-			ld		hl,sendsize
-			ld		(hl),9
-			inc		hl
-			ld		(hl),0
-			inc		hl
-			ld		(hl),IAC		; CMD
-			inc		hl
-			ld		(hl),SB		; SB sub negotiation
-			inc		hl
-			ld		(hl),CMD_NAWS
-			inc		hl
-			ld		(hl),0
-			inc		hl
-			ld		(hl),80
-			inc		hl
-			ld		(hl),0
-			inc		hl
-			ld		(hl),24
-			inc		hl
-			ld		(hl),IAC
-			inc		hl
-			ld		(hl),SE		; End of subnegotiation parameters.
-
-_wait_send:	ld		a,(ix)
-			cp		2			; send in progress?
-			jr		z,_wait_send
-			cp		0
-			call	nz,exit_close	
-			
-			ld		hl, cmdsend
-			call	sendcmd
-			ret
-
-
-
-will_not:
-			
-			ld		a,(iy+6)
-			; Refusals acknowledge disabled options. Echoing them back
-			; disrupts negotiation with 2.11BSD telnetd (notably ECHO).
-			cp		DONT
-			ret		z
-			cp		WONT
-			ret		z
-            cp      SB          ; Subneg will be a number of bytes up to IAC SE
-            ret     z
-			cp		DO			; DO
-			jr		nz, not_do
-			ld		a,WONT			; WONT
-			jr		next_telcmd
-not_do:		cp		WILL			; WILL
-			jr		nz, next_telcmd
-			ld		a,DO			; DO
-
-next_telcmd:
-
-			ld		hl,sendsize
-			ld		(hl),3
-			inc		hl
-			ld		(hl),0
-			inc		hl
-			ld		(hl),0xFF		; CMD
-			inc		hl
-			ld		(hl),a			;
-			inc		hl
-			ld		a,(iy+7)
-			ld		(hl),a			; 
-			
-			ld		a,8
-			ld		(cmdsend),a
-			
-			ld		hl, cmdsend
-			call	sendcmd
-
-
-			ret
-
-
-check_terminal_type:
-			; Check if the received command is CMD_TERMINAL_TYPE
-            ld a, (iy+7)
-            cp CMD_TERMINAL_TYPE
-            jr nz, will_not
-
-            ; If it is CMD_TERMINAL_TYPE, send Will Terminal-type
-            ld b, CMD_TERMINAL_TYPE
-            call send_tel_cmd
-
-            ; Prepare to assemble a new packet
-            ld		a,16
-			ld		(cmdsend),a
-			ld		hl,sendsize
-            ; Set the packet size
-            ld (hl), 10           ; Correct packet size (excluding size bytes)
-            inc hl
-            ld (hl), 0
-            inc hl
-
-            ; Start assembling the packet
-            ld (hl), IAC         ; Start of Telnet command
-            inc hl
-            ld (hl), SB          ; Subnegotiation Begin
-            inc hl
-            ld (hl), CMD_TERMINAL_TYPE  ; Terminal Type Option
-            inc hl
-            ld (hl), 0           ; IS command
-            inc hl
-
-            ; Write "ANSI" string
-            ld (hl), 'a'         ; ASCII for 'A'
-            inc hl
-            ld (hl), 'n'         ; ASCII for 'N'
-            inc hl
-            ld (hl), 's'         ; ASCII for 'S'
-            inc hl
-            ld (hl), 'i'         ; ASCII for 'I'
-            inc hl
-
-
-            ; End the subnegotiation
-            ld (hl), IAC         ; Interpret as Command
-            inc hl
-            ld (hl), SE          ; Subnegotiation End
-
-
-            ; Jump to wait/send routine
-            jp _wait_send
-
-; put cmd in b
-send_tel_cmd:
-			ld		a,8
-			ld		(cmdsend),a
-			ld		hl,sendsize
-			ld		(hl),3
-			inc		hl
-			ld		(hl),0
-			inc		hl
-			ld		(hl),0xFF		; CMD
-			inc		hl
-			ld		(hl),0xFB		; WILL
-			inc		hl
-			ld		(hl),b          ; b is cmd
-			
-			ld		hl, cmdsend
-			call	sendcmd
-            ret
+; Send B bytes at HL. Only the M4 send command is issued here, never recv.
+; Preserve parser registers and wait before reusing its shared packet buffer.
+SendBytes
+    push af
+    push bc
+    push de
+    push hl
+SendBytesWait
+    ld a,(ix)
+    cp 2
+    jr z,SendBytesWait
+    or a
+    jr nz,SendBytesDone
+    ld a,b
+    ld (sendsize),a
+    add a,5
+    ld (cmdsend),a
+    xor a
+    ld (sendsize+1),a
+    ld c,b
+    ld b,0
+    ld de,sendtext
+    ldir
+    ld hl,cmdsend
+    call sendcmd
+SendBytesDone
+    pop hl
+    pop de
+    pop bc
+    pop af
+    ret
+TelnetTypeReply: db IAC,SB,CMD_TERMINAL_TYPE,0,"VT100",IAC,SE
+TelnetWindowReply: db IAC,SB,CMD_NAWS,0,80,0,screen_depth,IAC,SE
+TelnetOptionReply: db IAC,0,0
+TelnetState: db 0
+TelnetVerb: db 0
+TelnetOption: db 0
+TelnetSBType: db 0
+TelnetSBCount: db 0
+TelnetSBFirst: db 0
+LocalTT: db 0
+LocalNAWS: db 0
+LocalSGA: db 0
+RemoteEcho: db 0
+RemoteSGA: db 0
+TelnetStateEnd:
 
 printTelCmd:
     ld a, (printTelCmdFlag)
@@ -193,7 +254,7 @@ printTelCmd:
 	; Load the Telnet command byte
     ld hl, RECV_STRING
     call disptextz
-    ld   a,(iy+6)
+    ld   a,(TelnetVerb)
     ; Compare and jump to respective handlers
     cp   DO
     jp   z, handle_do
@@ -220,7 +281,7 @@ handle_will:
     ret
 
 second_cmd:
-    ld		a,(iy+7)
+    ld		a,(TelnetOption)
     cp		CMD_NAWS	
     jp   z, handle_naws
     cp      CMD_ECHO
@@ -249,8 +310,8 @@ handle_tt:
 
 
 cmdtoascii:
-    ld (0x8A00), a
-    ld hl, 0x8A00
+    ld (TelDebugValue), a
+    ld hl, TelDebugValue
     call dispdec
     ld a, " "
     call printchar
@@ -259,6 +320,7 @@ cmdtoascii:
 
 
     ; Strings representing commands
+TelDebugValue: db 0
 do_string:    db 'DO ', 0
 will_string:  db 'WILL ', 0
 NAWS_String: db ' NAWS ', 0 

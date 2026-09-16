@@ -11,7 +11,7 @@ true        equ 1
 false       equ 0
 on          equ true
 off         equ false
-screen_depth    equ 25
+screen_depth    equ 24
 
 
 colour      equ true
@@ -124,6 +124,7 @@ rsx_data_area
     include "main.s"
     include "ansiterm.s"
     include "screen.s"
+    include "vt100.s"
     include "urlmenu.s"
     include "telnetfunc2.s"
     include "negotiate.s"
