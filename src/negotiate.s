@@ -77,6 +77,12 @@ _wait_send:	ld		a,(ix)
 will_not:
 			
 			ld		a,(iy+6)
+			; Refusals acknowledge disabled options. Echoing them back
+			; disrupts negotiation with 2.11BSD telnetd (notably ECHO).
+			cp		DONT
+			ret		z
+			cp		WONT
+			ret		z
             cp      SB          ; Subneg will be a number of bytes up to IAC SE
             ret     z
 			cp		DO			; DO
