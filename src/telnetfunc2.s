@@ -534,12 +534,12 @@ not_2digits:	ld	a,b
 
 
 
-msgconnclosed:	db	10,13,"Remote closed connection.",10,13,0
+msgconnclosed:	db	10,13,"Remote host closed the connection.",10,13,0
 msgsenderror:	db	10,13,"ERROR: ",0
 msgconnect:		db	10,13,"Connected.",10,13,0
-msgserverip:	db	10,13,"Input server name or IP (:PORT or default to 23):",10,13,0
-msgnom4:		db	"No M4 board found, bad luck :/",10,13,0
-msgfoundm4:		db	"M4 Board installed",10,13,0
+msgserverip:	db	10,13,"Enter hostname or IP[:port] (default port: 23):",10,13,0
+msgnom4:		db	"No M4 board found.",10,13,0
+msgfoundm4:		db	"M4 board detected",10,13,0
 msgverfail:		db	", you need v1.1.0 or higher.",10,13,0
 msgok:			db  ", OK.",10,13,0
 msgconnecting:	db	10,13, "Connecting to IP ",0
@@ -548,9 +548,9 @@ msgport:		db  " port ",0
 msgresolve:		db	10,13, "Resolving: ",0
 msgfail:		db 	", failed!", 10, 13, 0
 msgtitle:		db	"CPC telnet client v101 beta  Duke 2018",10,13,0
-msgtest:        db  "M4Term v2.0 VT100 2026 github.com/fergusleen/m4ewenterm",10,13,0
+msgtest:        db  "M4TERM v2.0 VT100 2026 github.com/fergusleen/m4ewenterm",10,13,0
 msgtitle2:		db  "==========https://github.com/fergusleen/m4ewenterm=========",10,13,0
-msguserabort:	db	10,13,"User aborted (ESC)", 10, 13,0
+msguserabort:	db	10,13,"Cancelled (ESC)", 10, 13,0
 cmdsocket:		db	5
 				dw	C_NETSOCKET
 				db	0x0,0x0,0x6		; domain, type, protocol (TCP/IP)
@@ -600,5 +600,5 @@ ReceiveBatchSize equ 64
 ReceiveBatch: ds ReceiveBatchSize
 
 ErrorContext: dw msgsenderror
-msgconnecterror: db "Connecting error: ",0
+msgconnecterror: db "Connection error: ",0
 msgsessionerror: db "Session error: ",0

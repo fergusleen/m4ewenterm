@@ -1,50 +1,50 @@
+# M4TERM — a VT100 terminal for the Amstrad CPC
 
-#  M4EWEN - A VT100 TERMINAL FOR THE AMSTRAD CPC
+> **2026 update:** An optimised 80×24 VT100 subset, tested with BSD `vi`.
 
->**UPDATE 2026: Now VT100 compatible and optimised for speed. Works with vi.**
-
-As far as I know, a VT100 terminal was never built for the CPC.
-
-## An ANSI Telnet client for the Amstrad CPC with M4 Board
+## An ANSI/VT100 Telnet client for the Amstrad CPC with M4 Board
 
 *Built for time travel to 1985.*
 
 Based on Ewenterm (https://ewen.mcneill.gen.nz/programs/cpc/ewenterm/) 1991
-and Duke's M4 telnet Example (https://github.com/M4Duke/M4examples/blob/master/telnet.s) 2018
+and Duke's M4 Telnet example (https://github.com/M4Duke/M4examples/blob/master/telnet.s) 2018
 
 - Assembles with RASM (www.roudoudou.com/rasm)
 - Tested with CPCEMU (https://www.cpc-emu.org/).
-- Also tested by the good people on cpcwiki.
+- Also tested by the good people on CPCWiki.
 - M4 board information here: (https://www.spinpoint.org/2019/11/19/m4-board-guides/)
-- CPCWIKI Thread here: (https://www.cpcwiki.eu/forum/amstrad-cpc-hardware/ansi-telnet-for-the-m4-board/)
+- CPCWiki thread here: (https://www.CPCWiki.eu/forum/amstrad-cpc-hardware/ansi-telnet-for-the-m4-board/)
 
 A version for the USIFAC 2 is also available on ikonsgr's Dropbox (Connect to BBS.zip) https://www.dropbox.com/sh/ezzga2dppm6jlm7/AACwFC_rv2QatWh_ndKc9fhma?dl=0
 
-
 ## Usage
-Copy EWEN.BAS, M4EWEN.BIN and CHARSET.BIN to the sdcard of the M4 board.
+For the combined CONNSTAR disk, run `RUN"CONNSTAR"` and select **2** for M4TERM.
 
-on the cpc: 
+For standalone use, copy `src/EWEN.BAS`, `bin/EWENM4.BIN` and
+`bin/CHARSET.BIN` to the same directory on the M4 board's SD card. On the CPC:
 
-*** 
-run"ewen 
+```basic
+RUN"EWEN"
+```
 
-***
-
-From here type in a domain:port or ip:port.
+Select a preset or **M** for a manual address. Enter `hostname:port` or
+`ip:port`; the default port is 23. DEL or Backspace removes the previous
+character. Manual input is limited to 127 characters.
 
 While the TCP connection is pending, press **Escape** (or **Shift-Escape**) to
 close the pending socket and return to the destination menu. The connecting
 message shows `(ESC cancels)`. This applies to the connection wait after DNS
 resolution, not to the M4 DNS lookup itself.
 
-All keypresses will go to the remote host, but for SHIFT-TAB (Pause) and SHIFT-ESC (Disconnect). 
+During a session, **Tab** pauses/resumes reception and **Shift-Escape**
+disconnects. Other keys are sent to the remote host; ordinary Escape remains
+available to applications such as `vi`.
 
 This is naturally a very restricted telnet client, but that is part of its appeal.
 
-Few places to start with.
+Example destinations (availability may change):
 
-- telehack.com 
+- telehack.com
     - Commands to try: `cat vttest.vt, phoon, rain, starwars, clock`.
 - amstrad.simulant.uk:464
 - ciaamigabbs.dynu.net:6400
@@ -52,26 +52,22 @@ Few places to start with.
 - horizons.jpl.nasa.gov:6775
 - sdf.org
 
+### Ideas for future work
 
-### todo/ideas:
-- Telnet negotation could be expanded. A  SHOW OPTIONS function, which prints telnet commands as they arrive, is in the code but has been commented out as it can cause some display issues.
+- Telnet negotiation could be expanded. A  SHOW OPTIONS function, which prints telnet commands as they arrive, is in the code but has been commented out as it can cause some display issues.
 - Allow the |TERM RSX to accept a domain/IP. Then build a BASIC menu of known working servers. There is commented out code to display a default URL.  Not stable yet.
-    - Pull a webpage with up to date servers?
+    - Pull a webpage with up-to-date server lists?
 - Add a few more ANSI Control codes. Could do animation?
 - Maybe do something to show colour? I think it's possible to use mode 1 for more colours and half the character width.
-- Need to decide on the name!
 
- 
+
 If this is useful to you, please consider buying me a coffee. Coffee motivates :)
 
 <a href="https://www.buymeacoffee.com/fleen" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png" alt="Buy Me A Coffee"></a>
 
-
 **F Leen November 2023**
 
-
-
-## VT100 foundation (work in progress) 2026
+## VT100 support (2026)
 
 The terminal now uses an 80-column, 24-row display with a streaming escape
 parser. The parser, full-screen editing, character-set, and Telnet milestones are implemented. This remains a practical 80x24 VT100 subset rather than complete hardware emulation.
@@ -108,7 +104,6 @@ Implemented:
   and advertises **80x24** after accepting NAWS. Remote ECHO and suppress-go-ahead
   are supported; unsupported options are refused.
 
-
 ### Automated assembly tests
 
 ```sh
@@ -124,12 +119,13 @@ real display, ROM banking, cursor interrupt timing, or M4 network interface.
 
 ### Repeatable CPCEMU / CPC visual test
 
+Run this on a computer reachable from the CPC:
 
 ```sh
 python3 tools/vt100_probe.py --bind 0.0.0.0 --port 2324 --fragment 1
 ```
 
-In M4TERM, select a manual destination and enter the hosts's LAN IP with `:2324`.
+In M4TERM, select a manual destination and enter the host's LAN IP with `:2324`.
 Each page states the expected result. Press **Space** for the next page, **R** to
 repeat, or **Q** to close the connection. Stop the server with Ctrl-C.
 
