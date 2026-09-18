@@ -4,7 +4,7 @@
 >**UPDATE 2026: Now VT100 compatible and optimised for speed. Works with vi.**
 
 As far as I know, a VT100 terminal was never built for the CPC.
-----
+
 ## An ANSI Telnet client for the Amstrad CPC with M4 Board
 
 *Built for time travel to 1985.*
