@@ -14,7 +14,7 @@ ResetTerminalModes
     ld (ScrollBottom),a
     ld a,1
     ld (AutoWrap),a
-    ret
+    jp RefreshGlyphMode
 HomeCursor
     call CancelWrap
     ld hl,0
@@ -145,6 +145,44 @@ CopyTextRow
     call FindCursor
     ex de,hl
     pop hl
+    ; A row is contiguous unless its first raster crosses the 2K ring edge.
+    ; Keep the column copier for either wrapped row; all other rows use LDIR.
+    ld a,h
+    and 7
+    cp 7
+    jr nz,CopyCheckDestination
+    ld a,l
+    cp 177
+    jr nc,CopyRowWrapped
+CopyCheckDestination
+    ld a,d
+    and 7
+    cp 7
+    jr nz,CopyRowBlocks
+    ld a,e
+    cp 177
+    jr nc,CopyRowWrapped
+CopyRowBlocks
+    ld a,8
+CopyRowBlockRaster
+    push af
+    push hl
+    push de
+    ld bc,80
+    ldir
+    pop de
+    pop hl
+    ld a,h
+    add a,8
+    ld h,a
+    ld a,d
+    add a,8
+    ld d,a
+    pop af
+    dec a
+    jr nz,CopyRowBlockRaster
+    ret
+CopyRowWrapped
     ld c,80
 CopyRowColumn
     push hl
@@ -217,7 +255,7 @@ RestoreDECCursor
     ld a,1
     ld (AutoWrap),a
     call HomeCursor
-    jp AnsiExit
+    jp GlyphModeExit
 RestoreDECValid
     ld a,(DecSavedOrigin)
     ld (OriginMode),a
@@ -265,7 +303,7 @@ RestoreDECBelow
     call CancelWrap
 RestoreDECPosition
     ld (CursorPosition),hl
-    jp AnsiExit
+    jp GlyphModeExit
 
 ; G0/G1 designation: B=ASCII/CP437, 0=DEC special graphics, A=UK.
 DesignateG0
@@ -298,14 +336,16 @@ DesignateCharacterSet
     jp nz,AnsiExit
 DesignateSet
     ld (hl),b
-    jp AnsiExit
+    jp GlyphModeExit
 SelectG0
     xor a
     ld (ActiveCharset),a
+    call RefreshGlyphMode
     jp AnsiMore              ; SI/SO are allowed inside escape sequences
 SelectG1
     ld a,1
     ld (ActiveCharset),a
+    call RefreshGlyphMode
     jp AnsiMore
 
 LoadTerminalGlyph
@@ -473,3 +513,41 @@ DECGraphics
     db #00,#02,#7E,#08,#10,#7E,#40,#00 ; 7C
     db #38,#6C,#64,#F0,#60,#E6,#FC,#00 ; 7D
     db #00,#00,#00,#00,#18,#00,#00,#00 ; 7E
+
+; Cache only derived state; DEC restore recomputes it from restored modes.
+GlyphModeExit
+    call RefreshGlyphMode
+    jp AnsiExit
+RefreshGlyphMode
+    push af
+    push bc
+    ld a,(JItalics)
+    ld b,a
+    ld a,(JBold)
+    and b
+    ld b,a
+    ld a,(JUnder)
+    and b
+    ld b,a
+    ld a,(JInverse)
+    and b
+    ld b,a
+    ld a,(JSmash)
+    and b
+    jr z,GlyphModeBuffered
+    ld a,(ActiveCharset)
+    or a
+    ld a,(G0Charset)
+    jr z,GlyphModeCharset
+    ld a,(G1Charset)
+GlyphModeCharset
+    or a
+    jr z,GlyphModeStore
+GlyphModeBuffered
+    ld a,1
+GlyphModeStore
+    ld (BufferedGlyphRequired),a
+    pop bc
+    pop af
+    ret
+BufferedGlyphRequired: db 1

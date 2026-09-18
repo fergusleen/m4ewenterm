@@ -1,6 +1,10 @@
 
-#  M4EWEN
+#  M4EWEN - A VT100 TERMINAL FOR THE AMSTRAD CPC
 
+>**UPDATE 2026: Now VT100 compatible and optimised for speed. Works with vi.**
+
+As far as I know, a VT100 terminal was never built for the CPC.
+----
 ## An ANSI Telnet client for the Amstrad CPC with M4 Board
 
 *Built for time travel to 1985.*
@@ -55,6 +59,7 @@ Few places to start with.
     - Pull a webpage with up to date servers?
 - Add a few more ANSI Control codes. Could do animation?
 - Maybe do something to show colour? I think it's possible to use mode 1 for more colours and half the character width.
+- Need to decide on the name!
 
  
 If this is useful to you, please consider buying me a coffee. Coffee motivates :)
@@ -66,7 +71,7 @@ If this is useful to you, please consider buying me a coffee. Coffee motivates :
 
 
 
-## VT100 foundation (work in progress)
+## VT100 foundation (work in progress) 2026
 
 The terminal now uses an 80-column, 24-row display with a streaming escape
 parser. The parser, full-screen editing, character-set, and Telnet milestones are implemented. This remains a practical 80x24 VT100 subset rather than complete hardware emulation.
@@ -103,13 +108,6 @@ Implemented:
   and advertises **80x24** after accepting NAWS. Remote ECHO and suppress-go-ahead
   are supported; unsupported options are refused.
 
-Partial-region and reverse scrolling copy rendered pixels and may be slower
-than the hardware-assisted full-screen upward scroll; test responsiveness on CPCEMU
-and real hardware. These changes still need a live BSD editor acceptance test.
-
-Application numeric keypad, configurable tab stops, 132-column mode,
-VT52 emulation, double-size characters, and exact blink behaviour remain
-outside the implemented subset. Use seven-bit `ESC [` sequences for CSI.
 
 ### Automated assembly tests
 
@@ -126,13 +124,12 @@ real display, ROM banking, cursor interrupt timing, or M4 network interface.
 
 ### Repeatable CPCEMU / CPC visual test
 
-On the Mac running CPCEMU (or another machine reachable by the CPC):
 
 ```sh
 python3 tools/vt100_probe.py --bind 0.0.0.0 --port 2324 --fragment 1
 ```
 
-In M4TERM, select a manual destination and enter the Mac's LAN IP with `:2324`.
+In M4TERM, select a manual destination and enter the hosts's LAN IP with `:2324`.
 Each page states the expected result. Press **Space** for the next page, **R** to
 repeat, or **Q** to close the connection. Stop the server with Ctrl-C.
 
@@ -149,25 +146,18 @@ exercises it.
 
 Protocol reference: [DEC VT100 User Guide, chapter 3](https://vt100.net/docs/vt100-ug/chapter3.html).
 
-### BSD validation
+### Plain-text rendering optimisation
 
-On 2026-09-17 the assembled decoder and key encoder were connected through the
-Z80 test harness to `192.168.1.135:2323`. The server accepted `VT100`, completed
-ECHO/SGA negotiation, and advanced from login to `Password:`. No password was
-sent. This checks the actual protocol code but does not replace CPCEMU/M4 timing
-checks or an authenticated editor session.
+The renderer caches whether attributes or the selected character set require
+buffered drawing. SGR, character-set selection, reset and DEC cursor restore
+refresh this derived state. Plain glyphs use eight unrolled raster writes.
 
-For the remaining acceptance check, connect from M4TERM and log in normally.
-Confirm the shell's terminal type is `vt100` (`echo $TERM`; in the BSD C shell,
-use `setenv TERM vt100` if needed), then open a disposable file in `vi`. Check
-arrow movement, scrolling in both directions, the bottom status line, and redraw
-with Ctrl-L. Avoid an important file for this test; exit with `:q!`.
+Compared with the preceding build, a Z80 benchmark of `PRINTCHAR` for `A`
+dropped from 1,588 cycles to 1,455 with caching, then to 1,333 with unrolling
+(about 16% fewer overall). A bold/underlined/inverse sample dropped from 2,932
+to 2,852 cycles. Firmware is stubbed in these measurements; they do not measure
+CPC/M4 wall-clock throughput. The binary remains 9,010 bytes excluding its
+AMSDOS header because the additional code fits existing alignment padding.
 
-### Receive throughput
-
-M4TERM reads up to 64 bytes per M4 receive command, then polls the keyboard.
-Each batch is copied to private storage before decoding so Telnet negotiation
-and terminal replies cannot overwrite unread input in the shared M4 response
-buffer. Short reads and sequences split between batches are supported.
-This reduces receive-command overhead by up to 64 times for queued output;
-actual display speed still depends on character drawing and scrolling.
+The assembly tests compare cached rendering with forced buffered rendering
+across style, colour, character-set, shift-in/out, save/restore and reset changes.

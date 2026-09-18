@@ -534,26 +534,90 @@ EraseCells
     call romen
     jp AnsiExit
 ScreenBlank
+    ; HL = first cell in raster zero, BC = cells (0..2048).
+    ; Split at the 2K ring edge before filling all eight rasters.
     ld a,b
     or c
     ret z
-ScreenBlank_Next
+    ld a,b
+    or a
+    jr nz,ScreenBlank_Blocks
+    ld a,c
+    cp 4
+    jr c,ScreenBlank_Small
+ScreenBlank_Blocks
+    push hl
+    ld de,#C800
+    ex de,hl
+    or a
+    sbc hl,de                  ; cells until the ring edge
+    push hl
+    or a
+    sbc hl,bc
+    jr c,ScreenBlank_Split
+    pop de
+    pop hl
+    jp ScreenBlank_Span
+ScreenBlank_Split
+    ex de,hl
+    ld hl,0
+    or a
+    sbc hl,de                  ; cells remaining after the edge
+    pop bc                     ; first contiguous span length
+    ex (sp),hl                 ; original start; save remainder on stack
+    call ScreenBlank_Span
+    pop bc
+    ld hl,#C000
+ScreenBlank_Span
+    ld a,8
+ScreenBlank_Raster
+    push af
+    push hl
+    push bc
+    ld (hl),0
+    dec bc
+    ld a,b
+    or c
+    jr z,ScreenBlank_RasterDone ; LDIR with BC=0 would copy 65536 bytes
+    ld d,h
+    ld e,l
+    inc de
+    ldir
+ScreenBlank_RasterDone
+    pop bc
+    pop hl
+    ld a,h
+    add a,8
+    ld h,a
+    pop af
+    dec a
+    jr nz,ScreenBlank_Raster
+    add hl,bc
+    ld a,h
+    and 7
+    or #C0
+    ld h,a                     ; return next cell, wrapped in raster zero
+    ld bc,0
+    ret
+; Avoid block setup overhead for one to three cells.
+ScreenBlank_Small
     push hl
     ld e,8
-ScreenBlank_Down
-    ld (hl),0                  ; VT100 erases to the normal background
+ScreenBlank_SmallRaster
+    ld (hl),0
     ld a,h
     add a,8
     ld h,a
     dec e
-    jr nz,ScreenBlank_Down
+    jr nz,ScreenBlank_SmallRaster
     pop hl
     call ScreenBlank_Across
     dec bc
-    ld a,c
-    or b
-    jr nz,ScreenBlank_Next
+    ld a,b
+    or c
+    jr nz,ScreenBlank_Small
     ret
+
 ScreenBlank_Across
     inc hl
     ld a,h
@@ -564,7 +628,7 @@ ScreenBlank_Across
 
 SGR	CALL	GetNumber
 	CP	254		; 254 signifies end of sequence
-	JP	Z,AnsiExit
+	JP	Z,GlyphModeExit
 	OR	A
 	CALL	Z,AllOff
 	CP	255		; Default means all off
@@ -610,6 +674,7 @@ AllOff:
 	LD	(forecolour),A
 	XOR	A
 	LD	(fontset),A	; Reset the bit map store
+    call RefreshGlyphMode
 	POP	AF		; Restore register
 	RET
 

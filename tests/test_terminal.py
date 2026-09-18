@@ -576,6 +576,177 @@ class TerminalTests(unittest.TestCase):
             self.assertEqual(commands,[SYMS[n] for n in ('CMDSOCKET','CMDCONNECT','CMDCLOSE')])
             self.assertEqual(m.sp,0xB002)
 
+    def test_connected_disconnect_paths_return_without_stack_leaks(self):
+        for reason in ['escape','remote','recv_error','send_error','paused_escape']:
+            with self.subTest(reason=reason):
+                t=Terminal()
+                m=t.cpu
+                t.mem[0xFF02:0xFF04]=(0xA200).to_bytes(2,'little')
+                t.mem[0xFF06:0xFF08]=(0xA100).to_bytes(2,'little')
+                commands=[]
+                keys=[]
+                def command():
+                    commands.append(m.hl)
+                    if m.hl==SYMS['CMDSOCKET']:
+                        t.mem[0xA203]=2
+                    elif m.hl==SYMS['CMDCONNECT']:
+                        t.mem[0xA203]=0
+                        t.mem[0xA120:0xA124]=bytes(4)
+                    elif m.hl==SYMS['CMDRECV']:
+                        t.mem[0xA203]=255
+                    elif m.hl==SYMS['CMDCLOSE']:
+                        self.assertEqual(t.mem[m.hl+3],2)
+                    else:
+                        self.fail('unexpected command')
+                def keyboard():
+                    m.a=keys.pop(0)
+                    m.f |= 1
+                    if reason=='send_error':
+                        t.mem[0xA120]=3
+                def connected():
+                    if reason=='remote':
+                        t.mem[0xA120]=3
+                    elif reason=='recv_error':
+                        t.mem[0xA122]=1
+                t.hooks[SYMS['SENDCMD']]=command
+                t.hooks[0xBB09]=keyboard
+                m.set_breakpoint(0xBB09)
+                # Inject socket state after WaitForConnect accepts the connection.
+                t.hooks[SYMS['RESETTELNET']]=connected
+                m.set_breakpoint(SYMS['RESETTELNET'])
+                for _ in range(30):
+                    # Firmware pointers live in ROM on CPC; restore them because
+                    # this flat-memory harness also draws screen RAM there.
+                    t.mem[0xFF02:0xFF04]=(0xA200).to_bytes(2,"little")
+                    t.mem[0xFF06:0xFF08]=(0xA100).to_bytes(2,"little")
+                    commands.clear()
+                    keys[:]=([9,ord('a'),0xFC] if reason=='paused_escape' else
+                             [ord('a')] if reason=='send_error' else [0xFC])
+                    t.call('TELNET_SESSION')
+                    self.assertEqual(commands.count(SYMS['CMDCLOSE']),1)
+                    self.assertEqual(m.sp,0xB002)
+
+    def test_row_copy_all_hardware_scroll_offsets_both_directions(self):
+        t=self.t
+        original=bytes((i*37+i//256)%256 for i in range(16384))
+        for offset in range(0,2048,16):
+            for source,dest in [(0,1),(1,0),(22,23),(23,22)]:
+                t.mem[0xC000:0x10000]=original
+                t.mem[SYMS['SCREENOFFSET']:SYMS['SCREENOFFSET']+2]=offset.to_bytes(2,'little')
+                expected=bytearray(original)
+                for raster in range(8):
+                    for col in range(80):
+                        src=raster*2048+(offset+source*80+col)%2048
+                        dst=raster*2048+(offset+dest*80+col)%2048
+                        expected[dst]=original[src]
+                t.cpu.e=dest
+                t.call('COPYTEXTROW',source)
+                self.assertEqual(bytes(t.mem[0xC000:0x10000]),expected)
+
+    def test_block_clear_ring_edges_and_untouched_screen_memory(self):
+        t=self.t
+        original=bytes((i*37+i//256)%255+1 for i in range(16384))
+        starts=set(range(0,2048,16)) | {1,79,80,175,176,177,1967,1968,1969,2046,2047}
+        for start in sorted(starts):
+            for count in [0,1,2,3,4,79,80,160,1919,1920,2000,2048]:
+                t.mem[0xC000:0x10000]=original
+                expected=bytearray(original)
+                for raster in range(8):
+                    for col in range(count):
+                        expected[raster*2048+(start+col)%2048]=0
+                t.cpu.hl=0xC000+start
+                t.cpu.bc=count
+                t.cpu.ix=0xA100
+                t.cpu.iy=0xA200
+                t.call('SCREENBLANK')
+                self.assertEqual(bytes(t.mem[0xC000:0x10000]),expected,(start,count))
+                self.assertEqual(t.cpu.hl,0xC000+(start+count)%2048)
+                self.assertEqual(t.cpu.bc,0)
+                self.assertEqual((t.cpu.ix,t.cpu.iy),(0xA100,0xA200))
+
+    def test_plain_glyph_path_matches_buffered_path(self):
+        fast=Terminal()
+        slow=Terminal()
+        # Force the buffered path without changing glyphs: UK maps only '#'.
+        slow.feed(b'\x1b(A')
+        data=bytes(c for c in range(32,256) if c not in (35,127))
+        for t in [fast,slow]:
+            t.feed(b'\x1b[24;70H'+data)
+        self.assertEqual(fast.cursor,slow.cursor)
+        self.assertEqual(bytes(fast.mem[0xC000:]),bytes(slow.mem[0xC000:]))
+
+    def test_cached_glyph_mode_matches_buffered_rendering_across_transitions(self):
+        fast=Terminal()
+        reference=Terminal()
+        transitions=[b'\x1b[0m',b'\x1b[1m',b'\x1b[2m',b'\x1b[3m',b'\x1b[4m',
+                     b'\x1b[7m',b'\x1b[8m',b'\x1b[22;24;27;28m',
+                     b'\x1b[31;41m',b'\x1b[37;40m',b'\x1b[0m',
+                     b'\x1b(0',b'\x1b(B',b'\x1b(A',b'\x1b)0\x0e',
+                     b'\x0f',b'\x1b)B\x0e',b'\x1b[1;7m\x1b7',
+                     b'\x1b[0m\x1b(B\x0f',b'\x1b8',b'\x1bc']
+        for seq in transitions:
+            fast.feed(seq)
+            reference.feed(seq)
+            attrs=all(fast.value(n)==0xC9 for n in
+                      ['JITALICS','JBOLD','JUNDER','JINVERSE','JSMASH'])
+            charset=fast.value('G1CHARSET' if fast.value('ACTIVECHARSET') else 'G0CHARSET')
+            self.assertEqual(fast.value('BUFFEREDGLYPHREQUIRED'),int(not(attrs and charset==0)),seq)
+            for char in b'Ab#_qx~'+bytes([156,196,255]):
+                fast.feed(bytes([char]))
+                reference.mem[SYMS['BUFFEREDGLYPHREQUIRED']]=1
+                reference.feed(bytes([char]))
+            self.assertEqual(fast.cursor,reference.cursor,seq)
+            self.assertEqual(bytes(fast.mem[0xC000:]),bytes(reference.mem[0xC000:]),seq)
+        fast.call('RESETTERMINALMODES')
+        fast.call('ALLOFF')
+        self.assertEqual(fast.value('BUFFEREDGLYPHREQUIRED'),0)
+
+    def test_manual_address_delete_updates_buffer_and_display(self):
+        for col in [1,78,79,80]:
+            for delete in [8,127]:
+                with self.subTest(col=col,delete=delete):
+                    t=Terminal()
+                    t.feed(f'\x1b[5;{col}H'.encode())
+                    keys=list(bytes([delete])+b'12x'+bytes([delete,delete])+b'3'+bytes([delete])+b'45\r')
+                    def keyboard():
+                        t.cpu.a=keys.pop(0)
+                        t.cpu.f |= 1
+                    t.hooks[0xBB09]=keyboard
+                    t.cpu.set_breakpoint(0xBB09)
+                    t.cpu.hl=SYMS['BUF']
+                    t.call('GET_TEXTINPUT')
+                    self.assertEqual(bytes(t.mem[SYMS['BUF']:SYMS['BUF']+4]),b'145\0')
+                    self.assertEqual(t.cpu.bc,3)
+                    expected=Terminal()
+                    expected.feed(f'\x1b[5;{col}H145'.encode())
+                    self.assertEqual(t.cursor,expected.cursor)
+                    self.assertEqual(bytes(t.mem[0xC000:]),bytes(expected.mem[0xC000:]))
+
+    def test_manual_address_rejects_controls_and_bounds_length(self):
+        t=self.t
+        keys=list(b'\x1b\t\x01'+b'a'*140+b'\x7fb\r')
+        def keyboard():
+            t.cpu.a=keys.pop(0)
+            t.cpu.f |= 1
+        t.hooks[0xBB09]=keyboard
+        t.cpu.set_breakpoint(0xBB09)
+        t.cpu.hl=SYMS['BUF']
+        t.mem[SYMS['BUF']+128]=0xA5
+        t.call('GET_TEXTINPUT')
+        self.assertEqual(t.cpu.bc,127)
+        self.assertEqual(bytes(t.mem[SYMS['BUF']:SYMS['BUF']+128]),b'a'*126+b'b\0')
+        self.assertEqual(t.mem[SYMS['BUF']+128],0xA5)
+
+    def test_socket_error_is_returned_without_waiting_for_keyboard(self):
+        t=self.t
+        t.cpu.ix=0xA100
+        for code in range(240,256):
+            t.mem[0xA100]=code
+            t.call('RECV_NOBLOCK2')
+            self.assertEqual(t.cpu.a,code)
+            self.assertTrue(t.cpu.f&1)
+            self.assertEqual(t.cpu.sp,0xB002)
+
     def test_connect_wait_success_and_errors(self):
         t=self.t
         m=t.cpu

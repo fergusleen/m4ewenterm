@@ -210,7 +210,7 @@ got_port:
 
 
 msgservermenu:
-			db		13,10,"M4TERM destinations",13,10,13,10
+			db		13,10,"Destinations",13,10,13,10
 			db		"1  amstrad.simulant.uk:464",13,10
 			db		"2  sdf.org",13,10
 			db		"3  telehack.com",13,10
@@ -296,23 +296,26 @@ re:			call	mc_wait_flyback
 			call	km_read_char
 			jr		nc,re
 
-			cp		0x7F
-			jr		nz, not_delkey
-            call printchar
-			ld		a,c
-			cp		0
-			jr		z, inputloop
-
-			dec		hl
-			dec		bc
-			jr		inputloop
+            cp 8
+            jr z,AddressDelete
+            cp #7F
+            jr nz,not_delkey
+AddressDelete:
+            ld a,c
+            or a
+            jr z,inputloop
+            dec hl
+            dec bc
+            ld (hl),0
+            call EraseAddressCharacter
+            jr inputloop
 not_delkey:	
 			cp		13
 			jr		z, terminate
 			cp		0xFC
 			ret		z
-			cp 32              ; Check if the pressed key is space
-			jp z, inputloop
+            cp 33
+            jp c,inputloop
 			; removed for now. - Bug sometimes setting top line cursor permanantely to 0,40 ish.
 			;jr nz, not_space   ; Jump if not space 
 			;call togglePrintTelCmd
@@ -320,6 +323,11 @@ not_delkey:
 not_space:
 			cp		0x7e
 			jr		nc, inputloop
+            ld e,a
+            ld a,c
+            cp 127               ; lookup_name has 128 bytes including NUL
+            jr nc,inputloop
+            ld a,e
 			ld		(hl),a
 			inc		hl
 			inc		bc
@@ -331,6 +339,37 @@ not_space:
 			jp		inputloop
 terminate:	ld		(hl),0
 			ret
+
+
+; Local line editing is separate from the remote VT100 meaning of DEL/BS.
+EraseAddressCharacter:
+            push hl
+            push bc
+            call HideCursor
+            ld hl,(CursorPosition)
+            ld a,(WrapPending)
+            or a
+            jr nz,AddressEraseCell
+            ld a,h
+            or a
+            jr nz,AddressPreviousColumn
+            dec l
+            ld h,80
+AddressPreviousColumn:
+            dec h
+AddressEraseCell:
+            call CancelWrap
+            ld (CursorPosition),hl
+            call romdis
+            call FindCursor
+            ld bc,1
+            call ScreenBlank
+            call romen
+            xor a
+            ld (JChangeCursor),a
+            pop bc
+            pop hl
+            ret
 
 
 togglePrintTelCmd:

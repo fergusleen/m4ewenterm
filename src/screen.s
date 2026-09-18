@@ -78,6 +78,66 @@ SW1
     call SW_LFn
 SW_NoWrap
     pop af
+    ld c,a
+    ld a,(BufferedGlyphRequired)
+    or a
+    jr nz,SW_StyledGlyph
+    ; Normal CP437 glyphs are stored one page per raster: no scratch copy.
+    ld e,c
+    ld d,HCharSet
+    call ROMDIS
+    ld hl,(CursorPosition)
+    push hl
+    call FindCursor
+    ; Eight fixed rasters: avoid a loop counter/branch for each font byte.
+    ld c,8
+    ld a,(de)
+    ld (hl),a
+    inc d
+    ld a,h
+    add a,c
+    ld h,a
+    ld a,(de)
+    ld (hl),a
+    inc d
+    ld a,h
+    add a,c
+    ld h,a
+    ld a,(de)
+    ld (hl),a
+    inc d
+    ld a,h
+    add a,c
+    ld h,a
+    ld a,(de)
+    ld (hl),a
+    inc d
+    ld a,h
+    add a,c
+    ld h,a
+    ld a,(de)
+    ld (hl),a
+    inc d
+    ld a,h
+    add a,c
+    ld h,a
+    ld a,(de)
+    ld (hl),a
+    inc d
+    ld a,h
+    add a,c
+    ld h,a
+    ld a,(de)
+    ld (hl),a
+    inc d
+    ld a,h
+    add a,c
+    ld h,a
+    ld a,(de)
+    ld (hl),a
+    jp SW_GlyphDone
+SW_StyledGlyph
+    ld a,c
 	LD	HL,Character		; Character buffer address
 	CALL	Getcharacter
 	CALL	JItalics		; Set the character matrix up
@@ -148,6 +208,7 @@ SW_NoWrap
 
 	LD	A,(DE)			; 8
 	LD	(HL),A
+SW_GlyphDone
 	call romen
 
     pop hl

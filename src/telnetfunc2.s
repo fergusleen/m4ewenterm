@@ -11,6 +11,8 @@ start_telnet:
 
 
 telnet_session:
+            ld hl,msgconnecterror
+            ld (ErrorContext),hl
 			call romen
 		    ld		hl,(0xFF02)	; get response buffer address
 			push	hl
@@ -82,6 +84,8 @@ connect_cancel:
             ret
 
 connect_ok:
+            ld hl,msgsessionerror
+            ld (ErrorContext),hl
             call ResetTerminalModes
             call ResetTelnet
             ld		hl,msgconnect
@@ -89,6 +93,7 @@ connect_ok:
 
 
 mainloop:	call	recv_noblock2
+            jp c,exit_close
 			
 			call	km_read_char
 			jr		nc,mainloop
@@ -176,7 +181,6 @@ ArrowFinals: db "ABDC"
 
 
 recv_noblock2:
-			push 	af
 			push 	bc
 			push 	de
 			push 	hl
@@ -185,19 +189,19 @@ recv_noblock2:
             ld bc,ReceiveBatchSize
 			
 			call 	recv
-			cp		0xFF
-			jp		z, exit_close	
+			cp 240
+            jr nc,ReceiveFailed
 			cp		3
-			jp		z, exit_close
+			jr z,ReceiveFailed
 			xor		a
 			cp		c
 			jr		nz, got_msg2
 			cp		b
 			jr		nz, got_msg2
+            or a                 ; successful return: carry clear
 			pop 	hl
 			pop 	de
 			pop 	bc
-			pop 	af
 			ret
 
 got_msg2:
@@ -230,15 +234,25 @@ recvdone:
 			pop		hl
 			pop		de
 			pop		bc
-			pop 	af
 			ret
 			
+
+
+; Return socket errors to the session loop, unwinding all receive frames.
+ReceiveFailed:
+            pop hl
+            pop de
+            pop bc
+            scf
+            ret
 
 
 recv:		; connection still active
 			ld		a,(ix)			; 
 			cp		3				; socket status  (3 == remote closed connection)
 			ret		z
+            cp 240
+            ret nc
 			; check if anything in buffer ?
 			ld		a,(ix+2)
      
@@ -342,9 +356,8 @@ not_rc3:	cp		0xFC
 			jp		disptextz
 notuser:
 			push	af
-			ld		hl,msgsenderror
-			ld		bc,9
-			call	disptext
+            ld hl,(ErrorContext)
+            call disptextz
 			pop		bc
 			ld		a,b
 			srl		a
@@ -396,8 +409,7 @@ exit_close:
 
 			ld		hl,cmdclose
 			call	sendcmd
-			jp		loop_ip
-			ret
+            ret                  ; Return to server_selected, which owns the menu loop
 
 
 			;
@@ -536,7 +548,7 @@ msgport:		db  " port ",0
 msgresolve:		db	10,13, "Resolving: ",0
 msgfail:		db 	", failed!", 10, 13, 0
 msgtitle:		db	"CPC telnet client v101 beta  Duke 2018",10,13,0
-msgtest:        db  "M4Term v2.0 VT100 2026 ",10,13,0
+msgtest:        db  "M4Term v2.0 VT100 2026 github.com/fergusleen/m4ewenterm",10,13,0
 msgtitle2:		db  "==========https://github.com/fergusleen/m4ewenterm=========",10,13,0
 msguserabort:	db	10,13,"User aborted (ESC)", 10, 13,0
 cmdsocket:		db	5
@@ -586,3 +598,7 @@ defaulturllength db 8
 ; Private receive storage must remain outside the M4 shared response buffer.
 ReceiveBatchSize equ 64
 ReceiveBatch: ds ReceiveBatchSize
+
+ErrorContext: dw msgsenderror
+msgconnecterror: db "Connecting error: ",0
+msgsessionerror: db "Session error: ",0
